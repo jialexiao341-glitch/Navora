@@ -1,0 +1,28 @@
+<div id="focus-notice" class="focus-notice" role="status" hidden></div>
+<div id="ambient-player" class="ambient-player is-collapsed align-right">
+    <section id="ambient-panel" class="ambient-panel" aria-label="Music player" data-i18n-aria-label="ambient_title">
+        <header><div><span class="ambient-eyebrow" data-i18n="ambient_eyebrow">YOUR SPACE</span><h2 data-i18n="ambient_title">氛围播放器</h2></div><button id="ambient-close" type="button" data-i18n-aria-label="ambient_close" aria-label="收起">×</button></header>
+        <div class="ambient-tabs" role="tablist" data-i18n-aria-label="focus_tabs" aria-label="休闲工具">
+            <button id="ambient-music-tab" type="button" role="tab" aria-selected="true" aria-controls="ambient-music-view" data-i18n="focus_music">音乐</button>
+            <button id="ambient-focus-tab" type="button" role="tab" aria-selected="false" aria-controls="ambient-focus-view" data-i18n="focus_tab">专注计时</button>
+        </div>
+        <div id="ambient-music-view" role="tabpanel" aria-labelledby="ambient-music-tab">
+        <div class="ambient-now"><span class="ambient-art"><i class="fas fa-music" aria-hidden="true"></i></span><div><small data-i18n="ambient_now">正在播放</small><strong id="ambient-title"></strong></div></div>
+        <input id="ambient-progress" class="ambient-range" type="range" min="0" max="1000" value="0" data-i18n-aria-label="ambient_progress" aria-label="播放进度">
+        <div id="ambient-time" class="ambient-time">0:00 / 0:00</div>
+        <div class="ambient-controls"><button id="ambient-previous" type="button" data-i18n-aria-label="ambient_previous" aria-label="上一首"><i class="fas fa-backward-step"></i></button><button id="ambient-play" class="ambient-play" type="button" aria-label="播放"><i id="ambient-play-icon" class="fas fa-play"></i></button><button id="ambient-next" type="button" data-i18n-aria-label="ambient_next" aria-label="下一首"><i class="fas fa-forward-step"></i></button></div>
+        <div class="ambient-options"><label><i class="fas fa-volume-low" aria-hidden="true"></i><input id="ambient-volume" class="ambient-range" type="range" min="0" max="1" step="0.01" data-i18n-aria-label="ambient_volume" aria-label="音量"></label><label><input id="ambient-loop" type="checkbox"> <span data-i18n="ambient_loop">列表循环</span></label></div>
+        <div class="ambient-list-head"><span data-i18n="ambient_playlist">播放列表</span><button id="ambient-add" type="button"><i class="fas fa-plus" aria-hidden="true"></i> <span data-i18n="ambient_add">添加音乐</span></button></div>
+        <ul id="ambient-list" class="ambient-list"></ul><p id="ambient-status" class="ambient-status" role="status"></p>
+        </div>
+        <div id="ambient-focus-view" role="tabpanel" aria-labelledby="ambient-focus-tab" hidden>
+            <div class="focus-modes"><button id="focus-work" type="button" aria-pressed="true" data-i18n="focus_work">专注</button><button id="focus-break" type="button" aria-pressed="false" data-i18n="focus_break">休息</button></div>
+            <div id="focus-clock" class="focus-clock" aria-live="off">25:00</div>
+            <label class="focus-duration"><span data-i18n="focus_duration">时长（分钟）</span><input id="focus-minutes" type="number" min="1" max="180" step="1" value="25"></label>
+            <div class="focus-actions"><button id="focus-start" type="button" data-i18n="focus_start">开始</button><button id="focus-reset" type="button" data-i18n="focus_reset">重置</button></div>
+            <p id="focus-status" class="focus-status" role="status"></p>
+        </div>
+        <input id="ambient-files" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac" multiple hidden><audio id="ambient-audio" preload="metadata"></audio>
+    </section>
+    <button id="ambient-toggle" class="ambient-toggle" type="button" aria-controls="ambient-panel" aria-expanded="false" data-i18n-aria-label="ambient_title" aria-label="氛围播放器"><i class="fas fa-music" aria-hidden="true"></i><span id="focus-badge" class="focus-badge" hidden></span></button>
+</div>

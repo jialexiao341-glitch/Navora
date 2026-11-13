@@ -7,6 +7,8 @@
 // =====================================================================
 const I18N = {
     zh: {
+        focus_tabs: '休闲工具', focus_music: '音乐', focus_tab: '专注计时', focus_work: '专注', focus_break: '休息', focus_duration: '时长（分钟）', focus_start: '开始', focus_pause: '暂停', focus_resume: '继续', focus_reset: '重置', focus_invalid: '请输入 1 到 180 的整数分钟', focus_work_done: '专注时间结束，休息一下吧。', focus_break_done: '休息时间结束，可以继续了。',
+        ambient_track_1: '静水微光', ambient_track_2: '夜空漫游', ambient_track_3: '晨间微风', ambient_title: '氛围播放器', ambient_eyebrow: '属于你的空间', ambient_now: '当前曲目', ambient_empty: '添加音乐开始聆听', ambient_close: '收起播放器', ambient_progress: '播放进度', ambient_previous: '上一首', ambient_next: '下一首', ambient_play: '播放', ambient_pause: '暂停', ambient_volume: '音量', ambient_loop: '列表循环', ambient_playlist: '播放列表', ambient_add: '添加音乐', ambient_remove: '移除', ambient_error: '无法播放此音频，请尝试其他文件。',
         chat_scroll_to_bottom: '滚动到底部',
         console: '控制台',
         theme_picker: '主题',
@@ -834,6 +836,8 @@ const I18N = {
         shares_logs_event_clear: '访客清除了上下文', shares_logs_event_deleted: '访客删除了这个对话',
     },
     'zh-Hant': {
+        focus_tabs: '休閒工具', focus_music: '音樂', focus_tab: '專注計時', focus_work: '專注', focus_break: '休息', focus_duration: '時長（分鐘）', focus_start: '開始', focus_pause: '暫停', focus_resume: '繼續', focus_reset: '重設', focus_invalid: '請輸入 1 到 180 的整數分鐘', focus_work_done: '專注時間結束，休息一下吧。', focus_break_done: '休息時間結束，可以繼續了。',
+        ambient_track_1: '靜水微光', ambient_track_2: '夜空漫遊', ambient_track_3: '晨間微風', ambient_title: '氛圍播放器', ambient_eyebrow: '屬於你的空間', ambient_now: '目前曲目', ambient_empty: '新增音樂開始聆聽', ambient_close: '收合播放器', ambient_progress: '播放進度', ambient_previous: '上一首', ambient_next: '下一首', ambient_play: '播放', ambient_pause: '暫停', ambient_volume: '音量', ambient_loop: '清單循環', ambient_playlist: '播放清單', ambient_add: '新增音樂', ambient_remove: '移除', ambient_error: '無法播放此音訊，請嘗試其他檔案。',
 
         chat_scroll_to_bottom: '捲動至底部',
         console: '控制台',
@@ -1658,6 +1662,8 @@ const I18N = {
         shares_logs_event_clear: '訪客清除了上下文', shares_logs_event_deleted: '訪客刪除了這個對話',
         },
     en: {
+        focus_tabs: 'Leisure tools', focus_music: 'Music', focus_tab: 'Focus timer', focus_work: 'Focus', focus_break: 'Break', focus_duration: 'Duration (minutes)', focus_start: 'Start', focus_pause: 'Pause', focus_resume: 'Resume', focus_reset: 'Reset', focus_invalid: 'Enter a whole number from 1 to 180 minutes', focus_work_done: 'Focus time is over. Take a break.', focus_break_done: 'Break time is over. Ready to continue.',
+        ambient_track_1: 'Still Water', ambient_track_2: 'Night Sky', ambient_track_3: 'Morning Breeze', ambient_title: 'Ambient player', ambient_eyebrow: 'YOUR SPACE', ambient_now: 'CURRENT TRACK', ambient_empty: 'Add music to start listening', ambient_close: 'Close player', ambient_progress: 'Playback position', ambient_previous: 'Previous track', ambient_next: 'Next track', ambient_play: 'Play', ambient_pause: 'Pause', ambient_volume: 'Volume', ambient_loop: 'Loop playlist', ambient_playlist: 'Playlist', ambient_add: 'Add music', ambient_remove: 'Remove', ambient_error: 'Unable to play this audio. Try another file.',
         chat_scroll_to_bottom: 'Scroll to bottom',
         console: 'Console',
         theme_picker: 'Theme',

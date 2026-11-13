@@ -61,6 +61,7 @@
     <link rel="stylesheet" href="/assets/css/components.css">
     <link rel="stylesheet" href="/assets/css/markdown.css">
     <link rel="stylesheet" href="/assets/css/chat.css">
+    <link rel="stylesheet" href="/assets/css/ambient-player.css">
     <link rel="stylesheet" href="/assets/css/workspace.css">
     <link rel="stylesheet" href="/assets/css/knowledge.css">
     <link rel="stylesheet" href="/assets/css/agents.css">
@@ -204,6 +205,8 @@
 
 <!--#include templates/modals/share-dialogs.html-->
 
+<!--#include templates/layout/ambient-player.html-->
+
     <!-- Split out of a single console.js. These are classic scripts, not
          modules: they share one global scope and `defer` runs them in this
          order. The order is load-bearing - see channel/web/README.md before
@@ -277,6 +280,8 @@
     <!-- boot before workspace.js, which is where console.js used to sit:
          applyI18n() probes for relocalizeWorkspacePanel with a typeof guard,
          and it has always run before workspace.js defined it. -->
+    <script defer src="/assets/js/core/ambient-player.js"></script>
+    <script defer src="/assets/js/core/focus-timer.js"></script>
     <script defer src="/assets/js/boot.js"></script>
 
     <script defer src="/assets/js/workspace.js"></script>
