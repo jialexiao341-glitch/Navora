@@ -104,6 +104,47 @@ const BUILTIN_COLOR_THEMES = [
     },
 ];
 
+// Curated combinations use the existing palette mapping and support both appearances.
+function _navoraTheme(id, name, light, dark) {
+    function colors(p) { return {
+        accent:p[0], accentHover:p[0], accentActive:p[0], accentSoft:p[1], accentContrast:'#ffffff',
+        bubbleUserBg:p[2], bubbleUserText:p[3], bgBase:p[4], bgSurface:p[5], bgSurface2:p[6],
+        bgElevated:p[5], bgInset:p[4], bgInset2:p[6], textPrimary:p[7], textSecondary:p[8],
+        textTertiary:p[9], textDisabled:p[10], borderDefault:p[11], borderStrong:p[12], borderSubtle:p[11], sidebarBg:p[6]
+    }; }
+    return {id, name, preview:{accent:light[0], bg:light[4], surface:light[5]}, light:{colors:colors(light)}, dark:{colors:colors(dark)}};
+}
+BUILTIN_COLOR_THEMES.push(
+    _navoraTheme('navora-jade', '翡翠 · Jade',
+        ['#167a6b','rgba(22,122,107,.12)','#ddf2eb','#174d43','#f2f7f4','#ffffff','#e8f1eb','#172d27','#405b51','#687f74','#a2b3aa','#dbe9e0','#bfd3c6'],
+        ['#55bfa7','rgba(85,191,167,.16)','#24463e','#d8f8eb','#101c19','#172722','#1d302a','#edf8f2','#c2d9cc','#91aa9d','#667d70','#30483e','#456255']),
+    _navoraTheme('navora-ink', '墨金 · Ink',
+        ['#956632','rgba(149,102,50,.12)','#f2e9d8','#513a1e','#f7f5f0','#ffffff','#edeae2','#292721','#575348','#7e796c','#b2ada0','#e5e0d5','#d2caba'],
+        ['#d0a867','rgba(208,168,103,.16)','#483c2d','#fff0d4','#181713','#24221d','#2e2b24','#f7f2e7','#d8d0bf','#a9a08e','#756d60','#403c32','#5b5547']),
+    _navoraTheme('navora-mist', '雾紫 · Mist',
+        ['#7562a8','rgba(117,98,168,.12)','#eee9f8','#493a6e','#f6f5fa','#ffffff','#edebf4','#282535','#575268','#817a91','#b3aebf','#e5e1ee','#d1cadf'],
+        ['#ad9be3','rgba(173,155,227,.16)','#403951','#f1eaff','#191722','#23202e','#2b2738','#f6f2ff','#d1cbe0','#a49bb8','#706a7e','#3c374b','#554e66'])
+);
+
+// Coordinated sidebar surfaces for each built-in appearance.
+const _NAVORA_SKINS = {
+    default: ['云岚 · Azure', null, null],
+    ocean: ['海屿 · Ocean', '#e4edf9', '#182a43'],
+    clay: ['暖砂 · Clay', '#f0e7db', '#352820'],
+    sakura: ['樱雾 · Sakura', '#f7e7ed', '#38252e'],
+    lavender: ['暮紫 · Lavender', '#ece8f6', '#29233a'],
+    'navora-jade': ['青屿 · Jade', '#dfeee7', '#18342b'],
+    'navora-ink': ['鎏金 · Ink', '#eee5d5', '#352a1c'],
+    'navora-mist': ['云紫 · Mist', '#eae6f3', '#2b243a'],
+};
+BUILTIN_COLOR_THEMES.forEach(theme => {
+    const skin = _NAVORA_SKINS[theme.id];
+    if (!skin) return;
+    theme.name = skin[0];
+    if (theme.light && skin[1]) theme.light.colors.sidebarBg = skin[1];
+    if (theme.dark && skin[2]) theme.dark.colors.sidebarBg = skin[2];
+});
+
 let colorThemes = BUILTIN_COLOR_THEMES.slice();
 let colorThemeId = localStorage.getItem(COLOR_THEME_KEY) || DEFAULT_COLOR_THEME;
 let colorThemesDir = '';
@@ -329,22 +370,21 @@ function _ctVars(colors, darkColors, dark) {
         set('slate-700', mix(t2, t1, 0.5));
         set('slate-800', t1); set('slate-900', t1);
     }
-    // The sidebar stays dark in both appearances: the theme's sidebarBg when
-    // its light text still reads on it, else the dark palette's base. A
-    // translucent sidebarBg lets a wallpaper show through (themes.css).
+    // Select readable sidebar text for either a light or dark themed surface.
     const sidebarBg = raw('sidebarBg') || (darkColors && _ctParse(darkColors.sidebarBg));
     const darkBase = darkColors && _ctParse(darkColors.bgBase);
-    if (sidebarBg && _ctContrast(_CT_SIDEBAR_TEXT, sidebarBg) >= 3) {
+    if (sidebarBg && sidebarBg[3] === 1) {
+        const lightSidebar = _ctContrast(_CT_BLACK, sidebarBg) > _ctContrast(_CT_WHITE, sidebarBg);
         set('sidebar', sidebarBg);
-        // Translucent, it must still read over the brightest wallpaper.
+        set('sidebar-text', lightSidebar ? (t2 || [60, 68, 76]) : [225, 232, 228]);
+        set('sidebar-muted', lightSidebar ? (t3 || [95, 105, 110]) : [177, 190, 184]);
+        set('sidebar-active', lightSidebar ? (accent || [0, 90, 179]) : _ctMix(accent || [100, 160, 220], _CT_WHITE, 0.55));
+        vars['--cw-sidebar-active-alpha'] = lightSidebar ? '0.12' : '0.22';
+    } else if (sidebarBg && _ctContrast(_CT_SIDEBAR_TEXT, sidebarBg) >= 3) {
+        set('sidebar', sidebarBg);
         let alpha = sidebarBg[3];
-        while (alpha < 1 && _ctContrast(_CT_SIDEBAR_TEXT, _ctMix(_CT_WHITE, sidebarBg, alpha)) < 3) {
-            alpha = Math.min(1, alpha + 0.05);
-        }
-        if (alpha < 1) {
-            vars['--cw-sidebar-alpha'] = alpha.toFixed(2);
-            vars['--cw-sidebar-blur'] = 'blur(20px) saturate(1.4)';
-        }
+        while (alpha < 1 && _ctContrast(_CT_SIDEBAR_TEXT, _ctMix(_CT_WHITE, sidebarBg, alpha)) < 3) alpha = Math.min(1, alpha + 0.05);
+        if (alpha < 1) { vars['--cw-sidebar-alpha'] = alpha.toFixed(2); vars['--cw-sidebar-blur'] = 'blur(20px) saturate(1.4)'; }
     } else if (darkBase) {
         set('sidebar', _ctMix(darkBase, _CT_BLACK, 0.35));
     }
@@ -427,6 +467,7 @@ function selectColorTheme(id) {
     localStorage.setItem(COLOR_THEME_KEY, id);
     applyColorTheme();
     renderColorThemeMenu();
+    renderHeaderSkinMenu();
 }
 
 // ---- Theme menu -------------------------------------------------------------
@@ -489,6 +530,39 @@ document.addEventListener('click', (e) => {
     if (menu && item && menu.contains(item)) selectColorTheme(item.dataset.themeId);
 });
 
+function renderHeaderSkinMenu() {
+    const list = document.getElementById('header-skins-list');
+    if (!list) return;
+    const active = getColorTheme(colorThemeId).id;
+    list.innerHTML = colorThemes.map(th => {
+        const p = th.preview || {accent:'#4abe6e', bg:'#f5f5f5', surface:'#fff'};
+        const swatch = [p.bg, p.surface, p.accent].map(c => `<span style="background:${escapeHtml(c)}"></span>`).join('');
+        return `<button type="button" role="menuitemradio" aria-checked="${th.id === active}" class="header-skins-item" data-header-theme="${escapeHtml(th.id)}"><span class="header-skins-swatch">${swatch}</span><span>${escapeHtml(th.name)}</span>${th.id === active ? '<i class="fas fa-check"></i>' : ''}</button>`;
+    }).join('');
+}
+function closeHeaderSkinMenu() {
+    document.getElementById('header-skins-menu')?.classList.add('hidden');
+    document.getElementById('header-skins-toggle')?.setAttribute('aria-expanded', 'false');
+}
+function toggleHeaderSkinMenu(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('header-skins-menu');
+    if (!menu.classList.contains('hidden')) { closeHeaderSkinMenu(); return; }
+    closeColorThemeMenu(); renderHeaderSkinMenu(); menu.classList.remove('hidden');
+    document.getElementById('header-skins-toggle').setAttribute('aria-expanded', 'true');
+    loadColorThemes().then(renderHeaderSkinMenu);
+}
+document.addEventListener('click', e => {
+    const choice = e.target.closest && e.target.closest('[data-header-theme]');
+    if (choice) { selectColorTheme(choice.dataset.headerTheme); closeHeaderSkinMenu(); return; }
+    if (!e.target.closest || !e.target.closest('.header-skins-wrap')) closeHeaderSkinMenu();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('header-skins-menu')?.classList.contains('hidden')) {
+        closeHeaderSkinMenu(); document.getElementById('header-skins-toggle')?.focus();
+    }
+});
+
 // ---- Custom theme dialog ----------------------------------------------------
 
 function _themeDocsUrl() {
@@ -496,6 +570,7 @@ function _themeDocsUrl() {
 }
 
 function openThemeAddModal() {
+    closeHeaderSkinMenu();
     closeColorThemeMenu();
     if (typeof closeUpdateMenu === 'function') closeUpdateMenu();
     const overlay = document.getElementById('theme-add-overlay');

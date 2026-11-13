@@ -76,6 +76,16 @@
                     </div>
                 </div>
 
+                <div class="header-skins-wrap">
+                    <button id="header-skins-toggle" type="button" class="header-skins-toggle" onclick="toggleHeaderSkinMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-controls="header-skins-menu" data-i18n-title="theme_picker" data-i18n-aria-label="theme_picker" aria-label="主题">
+                        <i class="fas fa-palette" aria-hidden="true"></i>
+                    </button>
+                    <div id="header-skins-menu" class="header-skins-menu hidden" role="menu">
+                        <div class="header-skins-title" data-i18n="theme_picker">主题</div>
+                        <div id="header-skins-list"></div>
+                        <button type="button" class="header-skins-custom" onclick="openThemeAddModal()"><i class="fas fa-plus"></i> <span data-i18n="theme_add">自定义主题…</span></button>
+                    </div>
+                </div>
                 <!-- Theme Toggle -->
                 <button id="theme-toggle" class="p-2 rounded-lg text-slate-500 dark:text-slate-400
                                                   hover:bg-slate-100 dark:hover:bg-white/10
