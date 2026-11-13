@@ -140,7 +140,8 @@ function syncSidebarTips() {
     const toggle = document.getElementById('sidebar-collapse-btn');
     if (toggle) {
         toggle.setAttribute('data-tooltip', t(collapsed ? 'sidebar_expand' : 'sidebar_collapse'));
-        toggle.setAttribute('data-tooltip-pos', collapsed ? 'right' : 'top');
+        toggle.setAttribute('data-tooltip-pos', 'bottom');
+        toggle.setAttribute('aria-label', t(collapsed ? 'sidebar_expand' : 'sidebar_collapse'));
         toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     }
 }

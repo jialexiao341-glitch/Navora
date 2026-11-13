@@ -180,27 +180,29 @@ html[data-wallpaper] #sidebar {
 }
 html[data-wallpaper] .composer-card { background: rgb(var(--cw-panel) / 0.82); }
 html[data-wallpaper] .composer-card:focus-within { background: rgb(var(--cw-panel) / 0.9); }
-/* Default Navora palette: dark navigation and a lighter, inset workspace.
-   Custom themes keep their own colors and surfaces. */
+/* Default light navigation: a cool, quiet surface, blue active state,
+   and a subtle divider against the main workspace. Custom themes are untouched. */
 html[data-default-palette]:not(.dark) #sidebar {
-    background: #142b46;
-    color: #c2cfde;
-    border-right: 1px solid #223d5b;
+    background: #f8fafc;
+    color: #40516a;
+    border-right: 1px solid #dce4ef;
 }
 html[data-default-palette]:not(.dark) #sidebar .sidebar-brand,
-html[data-default-palette]:not(.dark) #sidebar .sidebar-footer { border-color: rgba(205, 222, 241, .13); }
-html[data-default-palette]:not(.dark) #sidebar .sidebar-brand-text .text-white { color: #f5f9ff; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-footer { border-color: #e2e8f0; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-brand-text .text-white { color: #182b46; }
 html[data-default-palette]:not(.dark) #sidebar .sidebar-brand-text .text-neutral-500,
-html[data-default-palette]:not(.dark) #sidebar .menu-group-head { color: #91a7bf; }
-html[data-default-palette]:not(.dark) #sidebar .sidebar-item { color: #c6d4e3; }
-html[data-default-palette]:not(.dark) #sidebar .sidebar-item:hover { color: #fff; background: #223f60; }
-html[data-default-palette]:not(.dark) #sidebar .sidebar-item.active { color: #fff; background: #264e78; }
-html[data-default-palette]:not(.dark) #sidebar .sidebar-item.active .item-icon { color: #79baff; }
+html[data-default-palette]:not(.dark) #sidebar .menu-group-head { color: #697b93; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-item { color: #40516a; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-item:hover { color: #1768c7; background: #eaf1fa; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-item.active { color: #135ec1; background: #dceaff; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-item.active .item-icon { color: #176bd1; }
 html[data-default-palette]:not(.dark) #sidebar .menu-group-head:hover,
-html[data-default-palette]:not(.dark) #sidebar .sidebar-collapse-btn:hover,
-html[data-default-palette]:not(.dark) #sidebar .menu-group-edit:hover { color: #fff; background: #223f60; }
+html[data-default-palette]:not(.dark) #sidebar .menu-group-edit:hover { color: #1768c7; background: #eaf1fa; }
 html[data-default-palette]:not(.dark) #sidebar-nav { padding-top: 1.25rem; }
 html[data-default-palette]:not(.dark) #sidebar .menu-group { margin-bottom: .55rem; }
+html[data-default-palette]:not(.dark) #sidebar-nav:hover { scrollbar-color: #cbd5e1 transparent; }
+html[data-default-palette]:not(.dark) #sidebar-nav:hover::-webkit-scrollbar-thumb { background: #cbd5e1; }
+html[data-default-palette]:not(.dark).sidebar-collapsed .menu-group + .menu-group::before { background: #dce4ef; }
 html[data-default-palette]:not(.dark) #chat-messages {
     margin: 16px 20px 0;
     border: 1px solid #e2e8f0;
@@ -219,5 +221,12 @@ html[data-default-palette]:not(.dark) #chat-composer {
     html[data-default-palette]:not(.dark) #chat-messages { margin: 8px 8px 0; }
     html[data-default-palette]:not(.dark) #chat-composer { margin: 0 8px 8px; }
 }
-html[data-default-palette]:not(.dark) #sidebar .sidebar-footer .text-neutral-600,
-html[data-default-palette]:not(.dark) #sidebar .sidebar-collapse-btn { color: #9db1c8; }
+html[data-default-palette]:not(.dark) #sidebar .sidebar-footer .text-neutral-600 { color: #667b94; }
+/* Keep the default dark navigation legible without altering custom themes. */
+html[data-default-palette].dark #sidebar .sidebar-item { color: #c8d1de; }
+html[data-default-palette].dark #sidebar .sidebar-item:hover { color: #fff; }
+html[data-default-palette].dark #sidebar .sidebar-item.active { color: #fff; background: #293b55; }
+html[data-default-palette].dark #sidebar .sidebar-item.active .item-icon { color: #80baff; }
+html[data-default-palette].dark #sidebar .menu-group-head,
+html[data-default-palette].dark #sidebar .sidebar-brand-text .text-neutral-500,
+html[data-default-palette].dark #sidebar .sidebar-footer .text-neutral-600 { color: #9baac0; }

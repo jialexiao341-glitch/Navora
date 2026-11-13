@@ -17,20 +17,23 @@
 #sidebar-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); }
 #sidebar-nav:hover::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
 
-/* Rail toggle in the sidebar footer */
+/* Desktop navigation toggle in the top header. */
 .sidebar-collapse-btn {
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 7px;
-    color: #737373;
+    color: rgb(var(--cw-slate-600));
     cursor: pointer;
     transition: color .15s, background-color .15s;
 }
-.sidebar-collapse-btn:hover { color: #e5e5e5; background: rgba(255, 255, 255, 0.06); }
+.sidebar-collapse-btn:hover { color: rgb(var(--cw-primary-500)); background: rgb(var(--cw-primary-50)); }
+.sidebar-collapse-btn:focus-visible { outline: 2px solid rgb(var(--cw-primary-400)); outline-offset: 2px; }
+.dark .sidebar-collapse-btn { color: rgb(var(--cw-slate-300)); }
+.dark .sidebar-collapse-btn:hover { color: #fff; background: rgba(255, 255, 255, .09); }
 .sidebar-collapse-chevron { transform-box: fill-box; transform-origin: center; transition: transform .2s ease; }
 @media (max-width: 1023px) {
     .sidebar-collapse-btn { display: none; }
@@ -76,8 +79,9 @@
     html.sidebar-collapsed .sidebar-item .item-icon { font-size: 14px; }
     html.sidebar-collapsed .sidebar-footer { padding-left: 0; padding-right: 0; }
     html.sidebar-collapsed .sidebar-footer > div:first-child { justify-content: center; }
-    html.sidebar-collapsed .sidebar-version-row { display: none; }
-    html.sidebar-collapsed .sidebar-collapse-chevron { transform: scaleX(-1); }
+    html.sidebar-collapsed .sidebar-version-row { flex: 0 0 auto; justify-content: center; }
+    html.sidebar-collapsed #sidebar-version-label { display: none; }
+    html.sidebar-collapsed .sidebar-collapse-btn svg { transform: scaleX(-1); }
 }
 
 /* Session Panel */
