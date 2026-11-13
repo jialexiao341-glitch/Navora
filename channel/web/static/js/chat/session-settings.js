@@ -104,6 +104,7 @@ function _renderModelChip() {
     // Once a conversation has more than one Agent there is no single model to
     // show: each answers on its own. Pinning one here would silently apply to
     // whoever happens to own the conversation.
+    _renderThinkingButton();
     const shared = sharedConversation();
     btn.classList.toggle('hidden', shared);
     if (shared) {
@@ -229,6 +230,21 @@ function _modelControlState() {
     return { model, provider, options, effort, key, defaultEffort: capability.default || (options[0] || {}).value, enabled: !!(appConfig.enable_thinking || capability.thinking_only), thinkingOnly: !!capability.thinking_only };
 }
 
+function _renderThinkingButton() {
+    const btn = document.getElementById('thinking-mode-btn');
+    if (!btn) return;
+    const control = _modelControlState();
+    btn.setAttribute('aria-checked', String(control.enabled));
+    btn.setAttribute('aria-label', t('model_thinking_global'));
+    btn.setAttribute('data-tooltip', control.thinkingOnly ? t('model_thinking_required') : t('model_thinking_global'));
+    btn.disabled = control.thinkingOnly;
+}
+
+function toggleModelThinking() {
+    const control = _modelControlState();
+    if (!control.thinkingOnly) setModelThinking(!control.enabled);
+}
+
 function toggleModelSelector(event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     const menu = _modelMenu();
@@ -284,7 +300,7 @@ function renderModelMenu() {
         ${options.length ? `<div class="model-control-effort">
             <div class="model-effort-track ${enabled ? '' : 'is-disabled'}" role="radiogroup" aria-label="${escapeHtml(t('config_reasoning_effort'))}" style="--effort-progress:calc(${percent}% + ${15 - percent * .3}px)">${dots}</div>
         </div>` : ''}
-        ${!options.length || !enabled ? `<div class="model-control-foot"><span>${escapeHtml(status)}</span>${options.length && !enabled ? `<button type="button" onclick="enableModelThinking()">${escapeHtml(t('model_effort_enable'))}</button>` : ''}</div>` : ''}
+        ${!options.length || !enabled ? `<div class="model-control-foot"><span>${escapeHtml(status)}</span></div>` : ''}
     </div>`;
 }
 
@@ -325,14 +341,15 @@ function openReasoningSettings() {
 
 // This setting is global, as indicated in the panel; a deliberate click is
 // required before custom providers receive a thinking effort.
-async function enableModelThinking() {
+async function setModelThinking(enabled) {
+    if (_modelControlState().thinkingOnly) return;
     try {
-        const response = await fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: { enable_thinking: true } }) });
+        const response = await fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: { enable_thinking: enabled } }) });
         const data = await response.json();
         if (data.status !== 'success') { _wsToast(data.message || t('session_settings_failed')); return; }
-        appConfig.enable_thinking = true;
+        appConfig.enable_thinking = enabled;
         const settingsToggle = document.getElementById('cfg-enable-thinking');
-        if (settingsToggle) settingsToggle.checked = true;
+        if (settingsToggle) settingsToggle.checked = enabled;
         _renderModelChip();
         renderModelMenu();
     } catch (_) { _wsToast(t('session_settings_failed')); }

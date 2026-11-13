@@ -596,6 +596,9 @@ function saveAgentConfig() {
             // Reflect the merged map so a later model switch shows/uses the
             // just-saved value instead of a stale in-memory one.
             configReasoningByModel = mergedEffortByModel;
+            appConfig.enable_thinking = updates.enable_thinking;
+            appConfig.reasoning_effort_by_model = mergedEffortByModel;
+            _renderModelChip();
             showStatus('cfg-agent-status', 'config_saved', false);
         } else {
             showStatus('cfg-agent-status', 'config_save_error', true);

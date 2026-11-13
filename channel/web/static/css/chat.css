@@ -1171,11 +1171,11 @@
     content-visibility: visible;
 }
 
-/* Right edge lines up with the composer card (px-4 gutter, max-w-3xl column). */
+/* Keep the scroll control aligned with the wider composer column. */
 .chat-scroll-to-bottom {
     position: absolute;
     z-index: 20;
-    right: max(16px, calc((100% - 768px) / 2));
+    right: max(16px, calc((100% - 960px) / 2));
     bottom: calc(var(--chat-composer-height, 96px) + 12px);
     display: flex;
     width: 32px;
@@ -1288,3 +1288,12 @@
 /* Keep the card directly above the model chip, as in the reference. */
 #model-selector-menu { bottom: calc(2rem + 14px); right: min(96px, 8vw); }
 @media (max-width: 640px) { #model-selector-menu { right: 8px; } }
+
+.thinking-mode-btn { gap: 6px; white-space: nowrap; }
+.thinking-mode-btn[aria-checked="true"] { color: rgb(var(--cw-primary-600)); background: rgb(var(--cw-primary-50)); }
+.thinking-mode-btn:disabled { cursor: not-allowed; opacity: .7; }
+.thinking-mode-btn:focus-visible { outline: 2px solid rgb(var(--cw-primary-400)); outline-offset: 2px; }
+.dark .thinking-mode-btn[aria-checked="true"] { color: rgb(var(--cw-accent-ink)); background: rgb(var(--cw-primary-400) / .14); }
+@media (max-width: 640px) { .thinking-mode-btn span { display: none; } }
+
+.composer-column { max-width: 960px; }

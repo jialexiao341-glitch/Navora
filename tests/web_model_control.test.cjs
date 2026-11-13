@@ -43,11 +43,28 @@ test('DeepSeek compatibility alias xhigh is displayed as high instead of an extr
 test('enabling thinking applies the global setting and refreshes the panel', async () => {
  let request;
  const ctx = vm.createContext({
-  appConfig: {enable_thinking:false}, document: {getElementById: () => null}, renderModelMenu() {}, _renderModelChip() {}, _wsToast() {}, t:k=>k,
+  _modelControlState: () => ({thinkingOnly:false}), appConfig: {enable_thinking:false}, document: {getElementById: () => null}, renderModelMenu() {}, _renderModelChip() {}, _wsToast() {}, t:k=>k,
   fetch: async (url, init) => { request=JSON.parse(init.body); return { json:async () => ({status:'success'}) }; },
  });
- vm.runInContext(src.slice(src.indexOf('async function enableModelThinking('), src.indexOf('async function setModelEffort(')), ctx);
- await ctx.enableModelThinking();
+ vm.runInContext(src.slice(src.indexOf('async function setModelThinking('), src.indexOf('async function setModelEffort(')), ctx);
+ await ctx.setModelThinking(true);
  assert.equal(request.updates.enable_thinking,true);
  assert.equal(ctx.appConfig.enable_thinking,true);
+ await ctx.setModelThinking(false);
+ assert.equal(request.updates.enable_thinking,false);
+ assert.equal(ctx.appConfig.enable_thinking,false);
+});
+
+test('thinking-only models remain enabled when the global switch is off', () => {
+ const cap = { supported:true, thinking_only:true, options:[{value:'high'}], default:'high' };
+ const out = make({enable_thinking:false, providers:{deepseek:{reasoning_by_model:{'deepseek-flash':cap}}}}, {model:'deepseek-flash', provider:'deepseek'});
+ assert.equal(out.enabled, true); assert.equal(out.thinkingOnly, true);
+});
+
+test('effort cannot be saved while thinking is disabled', async () => {
+ let called = false;
+ const ctx = vm.createContext({ _modelControlState: () => ({enabled:false, options:[{value:'high'}]}), fetch: async () => { called = true; } });
+ vm.runInContext(src.slice(src.indexOf('async function setModelEffort('), src.indexOf('// Scroll the menu')), ctx);
+ await ctx.setModelEffort('high');
+ assert.equal(called, false);
 });
