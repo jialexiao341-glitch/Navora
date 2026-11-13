@@ -29,3 +29,63 @@
 .focus-clock { text-align:center; font-size:42px; font-weight:600; letter-spacing:.03em; font-variant-numeric:tabular-nums; margin:12px 0; }.focus-duration { display:flex; align-items:center; justify-content:space-between; color:rgb(var(--cw-slate-500)); font-size:12px; }.focus-duration input { width:68px; padding:6px 8px; border:1px solid rgb(var(--cw-slate-200)); border-radius:8px; background:transparent; color:inherit; }
 .focus-actions { display:flex; gap:8px; margin-top:16px; }.focus-actions button { flex:1; border-radius:9px; padding:9px; font-size:12px; background:rgb(var(--cw-slate-100)); }.focus-actions button:first-child { color:#fff; background:rgb(var(--cw-primary-500)); }.focus-status { margin-top:10px; color:rgb(var(--cw-primary-600)); font-size:12px; }.ambient-toggle { position:relative; }.focus-badge { position:absolute; right:0; bottom:-7px; padding:2px 4px; border-radius:6px; color:#fff; background:rgb(var(--cw-primary-500)); font-size:9px; font-variant-numeric:tabular-nums; }.focus-notice { position:fixed; z-index:90; right:20px; top:70px; padding:12px 16px; border:1px solid rgb(var(--cw-slate-200)); border-radius:12px; color:rgb(var(--cw-slate-800)); background:rgb(var(--cw-panel)); box-shadow:0 8px 24px #1c30432e; font-size:13px; }.dark .focus-notice { color:rgb(var(--cw-slate-100)); }
 .ambient-panel { box-sizing: border-box; }
+.sounds-intro { margin:18px 0 12px; color:rgb(var(--cw-slate-500)); font-size:12px; }
+.sounds-list { display:grid; gap:7px; }.sounds-choice { display:flex; align-items:center; gap:12px; width:100%; padding:11px; border:1px solid rgb(var(--cw-slate-200)); border-radius:12px; text-align:left; color:rgb(var(--cw-slate-700)); }.sounds-choice > i:first-child { display:grid; place-items:center; width:34px; height:34px; flex:none; border-radius:10px; background:rgb(var(--cw-primary-50)); color:rgb(var(--cw-primary-600)); }.sounds-choice span { flex:1; min-width:0; }.sounds-choice strong, .sounds-choice small { display:block; }.sounds-choice strong { font-size:12px; font-weight:600; }.sounds-choice small { margin-top:3px; color:rgb(var(--cw-slate-500)); font-size:10px; }.sounds-choice .sounds-icon { color:rgb(var(--cw-slate-400)); font-size:11px; }.sounds-choice[aria-pressed=true] { border-color:rgb(var(--cw-primary-400)); background:rgb(var(--cw-primary-50)); }.sounds-choice[aria-pressed=true] .sounds-icon { color:rgb(var(--cw-primary-600)); }.sounds-volume { display:flex; align-items:center; gap:12px; margin-top:16px; color:rgb(var(--cw-slate-500)); font-size:11px; }.sounds-volume span { white-space:nowrap; }.dark .sounds-choice { color:rgb(var(--cw-slate-200)); }.dark .sounds-choice[aria-pressed=true] { background:rgb(var(--cw-primary-400) / .14); }
+.leisure-note { margin-top:14px; color:rgb(var(--cw-slate-500)); font-size:11px; line-height:1.6; }
+.leisure-choice:hover { border-color:rgb(var(--cw-primary-300)); background:rgb(var(--cw-primary-50)); }
+.ambient-tabs button { min-width:0; padding:7px 3px; white-space:nowrap; }
+.companion-setting { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding:10px; border-radius:12px; background:rgb(var(--cw-slate-100)); }.companion-setting strong,.companion-setting small { display:block; }.companion-setting strong { color:rgb(var(--cw-slate-700)); font-size:12px; }.companion-setting small { margin-top:3px; color:rgb(var(--cw-slate-500)); font-size:10px; }.companion-setting input { accent-color:rgb(var(--cw-primary-500)); width:16px; height:16px; }
+.companion { position:fixed; z-index:55; right:24px; bottom:175px; width:68px; height:68px; }.companion[hidden] { display:none; }.companion-character { width:68px; height:68px; filter:drop-shadow(0 5px 8px #263f602e); animation:companion-float 4s ease-in-out infinite; }.companion-character svg { width:100%; height:100%; }.companion[data-state=working] .companion-character { animation:companion-think 1.5s ease-in-out infinite; }.companion-close { position:absolute; top:0; right:-2px; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:rgb(var(--cw-panel)); color:rgb(var(--cw-slate-500)); opacity:0; }.companion:hover .companion-close,.companion:focus-within .companion-close { opacity:1; }.companion-message { display:none; position:absolute; right:60px; bottom:44px; width:max-content; max-width:180px; padding:8px 11px; border:1px solid rgb(var(--cw-slate-200)); border-radius:12px 12px 2px 12px; background:rgb(var(--cw-panel)); color:rgb(var(--cw-slate-700)); font-size:12px; box-shadow:0 4px 14px #263f601a; }.companion.show-message .companion-message { display:block; }.companion button:focus-visible { outline:2px solid rgb(var(--cw-primary-400)); outline-offset:2px; border-radius:8px; }.dark .companion-setting strong,.dark .companion-message { color:rgb(var(--cw-slate-200)); }
+@keyframes companion-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-4px); } } @keyframes companion-think { 0%,100% { transform:rotate(-4deg); } 50% { transform:rotate(4deg); } }
+@media (max-width:640px) { .companion { right:10px; bottom:190px; width:54px; height:54px; }.companion-character { width:54px; height:54px; }.companion-close { opacity:.8; } }
+@media (prefers-reduced-motion:reduce) { .companion-character,.companion[data-state=working] .companion-character { animation:none; } }
+
+/* Four soft rays form a single mark for the whole leisure space. */
+.ambient-toggle { display:grid; place-items:center; }
+.ambient-mark { width:23px; height:23px; display:block; }
+.companion-character { cursor:grab; touch-action:none; }.companion.is-dragging .companion-character { cursor:grabbing; animation:none; transform:scale(1.1) rotate(-6deg); filter:drop-shadow(0 9px 12px #3b82f666); }
+.companion-panel { position:absolute; right:65px; bottom:55px; width:176px; padding:12px; border:1px solid rgb(var(--cw-slate-200)); border-radius:14px; background:rgb(var(--cw-panel)); color:rgb(var(--cw-slate-800)); box-shadow:0 8px 24px #263f6026; font-size:12px; }.companion-panel[hidden] { display:none; }.companion-panel strong { font-weight:650; }.companion-panel p { margin:6px 0 10px; color:rgb(var(--cw-slate-500)); }.companion-panel button { width:100%; padding:7px; border-radius:8px; color:rgb(var(--cw-primary-600)); background:rgb(var(--cw-primary-50)); }.companion.panel-right .companion-panel { right:auto; left:65px; }.companion.panel-down .companion-panel { bottom:auto; top:55px; }.dark .companion-panel { color:rgb(var(--cw-slate-100)); }.dark .companion-panel button { color:rgb(var(--cw-accent-ink)); background:rgb(var(--cw-primary-400) / .14); }
+/* Full-body companions share a visual language but keep distinct silhouettes. */
+.companion[data-persona=tuantuan] { --pet-body:#9edcff; --pet-edge:#70afe2; }
+.companion[data-persona=tiaotiao] { --pet-body:#ffd19b; --pet-edge:#e79c63; }
+.companion[data-persona=momo] { --pet-body:#c2b5e5; --pet-edge:#8d7bbd; }
+.pet-ears { display:none; }.companion[data-persona=tuantuan] .pet-ears-cat,.companion[data-persona=tiaotiao] .pet-ears-rabbit,.companion[data-persona=momo] .pet-ears-bear { display:block; }
+.companion .companion-art { overflow:visible; }.pet-arm,.pet-foot { transform-box:fill-box; transform-origin:center; }
+.companion[data-state=working] .pet-arm-right,.companion[data-state=search] .pet-arm-right { animation:pet-wave 1.1s ease-in-out infinite alternate; transform-origin:15% 30%; }
+.companion[data-state=search] .pet-arm-left { animation:pet-wave 1.4s ease-in-out infinite alternate-reverse; transform-origin:85% 30%; }
+.companion[data-state=done] .companion-character { animation:pet-cheer .5s ease-in-out 3; }.companion[data-state=done] .pet-arm { animation:pet-wave .35s ease-in-out 4 alternate; }
+.companion[data-persona=tiaotiao] .companion-character { animation-duration:2.5s; }.companion[data-persona=momo] .companion-character { animation-duration:6s; }
+.companion-select-label { display:grid; gap:4px; margin:8px 0; color:rgb(var(--cw-slate-500)); font-size:11px; }.companion-select-label select { width:100%; padding:6px; border:1px solid rgb(var(--cw-slate-200)); border-radius:8px; color:rgb(var(--cw-slate-700)); background:rgb(var(--cw-panel)); }.dark .companion-select-label select { color:rgb(var(--cw-slate-200)); }
+.companion.panel-right .companion-message { right:auto; left:60px; border-radius:12px 12px 12px 2px; }.companion.panel-down .companion-message { bottom:auto; top:52px; }
+@keyframes pet-wave { from { transform:rotate(-15deg); } to { transform:rotate(28deg); } } @keyframes pet-cheer { 50% { transform:translateY(-8px) scale(1.05); } }
+@media (prefers-reduced-motion:reduce) { .pet-arm,.companion[data-state=done] .companion-character { animation:none !important; } }
+/* Short, personality-specific strolls stay within the chat area. */
+.companion.is-walking { transition:left 2.8s ease-in-out, top 2.8s ease-in-out; }
+.companion.is-dragging { transition:none; }
+.companion.is-walking .companion-character { animation:companion-step .36s ease-in-out infinite alternate; }
+.companion.is-walking .pet-foot-left { animation:pet-step .36s ease-in-out infinite alternate; }
+.companion.is-walking .pet-foot-right { animation:pet-step .36s ease-in-out infinite alternate-reverse; }
+.companion.is-idle-acting .pet-arm-right { animation:pet-wave .7s ease-in-out 3 alternate; }
+.companion.faces-left .companion-art { transform:scaleX(-1); }
+@keyframes companion-step { from { transform:translateY(0) rotate(-3deg); } to { transform:translateY(-5px) rotate(3deg); } }
+@keyframes pet-step { from { transform:translateY(0); } to { transform:translateY(-4px); } }
+@media (prefers-reduced-motion:reduce) { .companion.is-walking { transition:none; }.companion.is-walking .companion-character,.companion.is-walking .pet-foot,.companion.is-idle-acting .pet-arm-right { animation:none; } }
+/* The companions are full-body original illustrations; motion moves the whole figure. */
+.companion { width:104px; height:128px; }
+.companion-character { width:100%; height:100%; display:grid; place-items:center; }
+.companion-character .companion-art { display:block; width:100%; height:100%; object-fit:contain; user-select:none; pointer-events:none; }
+.companion-panel { right:100px; bottom:100px; }.companion.panel-right .companion-panel { left:100px; }.companion.panel-down .companion-panel { top:100px; }
+.companion-message { right:90px; bottom:90px; }.companion.panel-right .companion-message { left:90px; }.companion.panel-down .companion-message { top:90px; }
+@media (max-width:640px) { .companion { width:78px; height:96px; }.companion-panel { right:76px; bottom:75px; }.companion.panel-right .companion-panel { left:76px; }.companion.panel-down .companion-panel { top:75px; }.companion-message { right:70px; bottom:70px; }.companion.panel-right .companion-message { left:70px; }.companion.panel-down .companion-message { top:70px; } }
+/* Each sprite has four idle frames and four walking frames. */
+.companion-character .companion-sprite { background-size:400% 200%; background-repeat:no-repeat; background-position:0 0; animation:companion-sprite-idle 6s steps(1,end) infinite; }
+.companion.is-walking .companion-sprite { animation:companion-sprite-walk .8s steps(1,end) infinite; }
+.companion.is-idle-acting .companion-sprite,.companion[data-state=done] .companion-sprite { animation:companion-sprite-wave 1.6s steps(1,end) 1; }
+.companion[data-persona=tiaotiao] .companion-sprite { animation-duration:4.5s; }
+.companion[data-persona=momo] .companion-sprite { animation-duration:8s; }
+.companion[data-persona=tiaotiao].is-walking .companion-sprite { animation-duration:.6s; }
+.companion[data-persona=momo].is-walking .companion-sprite { animation-duration:1.1s; }
+@keyframes companion-sprite-idle { 0%, 69% { background-position:0 0; } 70%, 73% { background-position:33.333% 0; } 74%, 85% { background-position:0 0; } 86%, 94% { background-position:66.667% 0; } 95%, 100% { background-position:100% 0; } }
+@keyframes companion-sprite-walk { 0% { background-position:0 100%; } 25% { background-position:33.333% 100%; } 50% { background-position:66.667% 100%; } 75%, 100% { background-position:100% 100%; } }
+@keyframes companion-sprite-wave { 0%, 20% { background-position:0 0; } 21%, 80% { background-position:66.667% 0; } 81%, 100% { background-position:100% 0; } }
+@media (prefers-reduced-motion:reduce) { .companion-character .companion-sprite,.companion.is-walking .companion-sprite,.companion.is-idle-acting .companion-sprite,.companion[data-state=done] .companion-sprite { animation:none !important; background-position:0 0; } }

@@ -44,12 +44,13 @@ if (typeof document !== 'undefined') (() => {
         }
         render();
     }
-    function switchView(focus) {
-        el('ambient-focus-view').hidden = !focus; el('ambient-music-view').hidden = focus;
-        el('ambient-focus-tab').setAttribute('aria-selected', String(focus)); el('ambient-music-tab').setAttribute('aria-selected', String(!focus));
+    function switchView(view) {
+        for (const name of ['music', 'sounds', 'leisure', 'focus']) {
+            el('ambient-' + name + '-view').hidden = name !== view;
+            el('ambient-' + name + '-tab').setAttribute('aria-selected', String(name === view));
+        }
     }
-    el('ambient-focus-tab').addEventListener('click', () => switchView(true));
-    el('ambient-music-tab').addEventListener('click', () => switchView(false));
+    for (const name of ['music', 'sounds', 'leisure', 'focus']) el('ambient-' + name + '-tab').addEventListener('click', () => switchView(name));
     for (const mode of ['work', 'break']) el('focus-' + mode).addEventListener('click', () => { if (state.mode !== mode) { state.mode = mode; reset(); } });
     el('focus-minutes').addEventListener('change', e => {
         const n = normalizeFocusMinutes(e.target.value);
