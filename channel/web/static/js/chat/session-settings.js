@@ -35,7 +35,7 @@ function _closeComposerMenus(keep) {
         .forEach(([menu, btn]) => {
             if (!menu || menu === keep) return;
             menu.classList.add('hidden');
-            if (btn) btn.classList.remove('open');
+            if (btn) { btn.classList.remove('open'); if (btn === _modelBtn()) btn.setAttribute('aria-expanded', 'false'); }
         });
     const agentMenu = document.getElementById('composer-agent-menu');
     if (agentMenu && agentMenu !== keep) agentMenu.classList.add('hidden');
@@ -118,6 +118,9 @@ function _renderModelChip() {
     // The chip shows the display name; the tooltip keeps the real model name.
     const label = document.getElementById('model-selector-label');
     if (label) label.textContent = _modelAlias(state.providers, activeProvider, model) || model || t('model_unset');
+    const effortLabel = document.getElementById('model-effort-label');
+    const control = _modelControlState();
+    if (effortLabel) effortLabel.textContent = control.options.length && control.enabled ? t(`model_effort_${control.effort}`) : '';
 
     const tip = t('model_tip').replace('{name}', model || t('model_unset'))
         + (state.source === 'global' ? ` · ${t('model_follow_global')}` : '')
@@ -207,6 +210,25 @@ function _appendPermissionDeniedHint(toolEl, mode) {
     toolEl.parentElement.insertBefore(hint, toolEl.nextElementSibling);
 }
 
+// The model belongs to the chat; reasoning is a model-wide configuration.
+function _modelControlState() {
+    const state = (_sessCfg && _sessCfg.model) || {};
+    const model = state.model || (state.global && state.global.model) || '';
+    const provider = state.provider || (state.global && state.global.provider) ||
+        (typeof detectProvider === 'function' ? detectProvider(model) : '') || '';
+    const config = (appConfig.providers || {})[provider] || {};
+    const byModel = config.reasoning_by_model || {};
+    const capability = byModel[model] || (model === appConfig.model ? config.reasoning : null) || {};
+    let options = capability.supported && Array.isArray(capability.options) ? capability.options : [];
+    // DeepSeek accepts xhigh for compatibility but maps it to high.
+    if (provider === 'deepseek' && /^deepseek-(v4|flash)/i.test(model)) options = options.filter(option => option.value !== 'xhigh');
+    const key = `${provider}:${model.trim().toLowerCase()}`;
+    let saved = (appConfig.reasoning_effort_by_model || {})[key] || appConfig.reasoning_effort;
+    if (provider === 'deepseek' && /^deepseek-(v4|flash)/i.test(model) && ['medium', 'xhigh'].includes(saved)) saved = 'high';
+    const effort = options.some(option => option.value === saved) ? saved : (capability.default || (options[0] || {}).value || '');
+    return { model, provider, options, effort, key, defaultEffort: capability.default || (options[0] || {}).value, enabled: !!(appConfig.enable_thinking || capability.thinking_only), thinkingOnly: !!capability.thinking_only };
+}
+
 function toggleModelSelector(event) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     const menu = _modelMenu();
@@ -220,7 +242,7 @@ function toggleModelSelector(event) {
         renderModelMenu();
         menu.classList.remove('hidden');
         _modelBtn()?.classList.add('open');
-        _scrollModelMenuToActive(menu);
+        _modelBtn()?.setAttribute('aria-expanded', 'true');
     };
     // Always re-fetch: the catalog depends on which providers have keys, which
     // may have changed in Settings since this page loaded.
@@ -231,44 +253,104 @@ function renderModelMenu() {
     const menu = _modelMenu();
     if (!menu) return;
     const state = (_sessCfg && _sessCfg.model) || {};
-    const providers = state.providers || [];
+    const control = _modelControlState();
+    const alias = _modelAlias(state.providers, control.provider, control.model);
+    const modelName = alias || control.model || t('model_unset');
+    const options = control.options;
+    const activeIndex = Math.max(0, options.findIndex(option => option.value === control.effort));
+    const selected = options[activeIndex];
+    const labelKey = selected ? `model_effort_${selected.value}` : '';
+    const effortLabel = selected ? t(labelKey) : t('model_effort_unavailable');
+    const percent = options.length > 1 ? (activeIndex / (options.length - 1)) * 100 : 0;
+    const enabled = control.enabled;
+    const dots = options.map((option, index) => {
+        const selected = option.value === control.effort;
+        const text = t(`model_effort_${option.value}`);
+        return `<button type="button" class="model-effort-step ${selected ? 'is-active' : ''}"
+            role="radio" aria-checked="${selected}" aria-label="${escapeHtml(text)}"
+            ${enabled ? '' : 'disabled'} onclick="setModelEffort('${_wsAttr(option.value)}')">
+            <span class="model-effort-dot"></span></button>`;
+    }).join('');
+    const status = options.length ? (enabled ? t('model_effort_scope') : t('model_effort_disabled')) : t('model_effort_unavailable');
+    menu.innerHTML = `<div class="model-control" title="${escapeHtml(status)}">
+        <div class="model-control-heading">
+            <span class="model-control-symbol" aria-hidden="true"></span>
+            <button type="button" class="model-control-select" onclick="event.stopPropagation(); renderModelList()" aria-label="${escapeHtml(t('model_change'))}">
+                <strong>${escapeHtml(options.length ? (enabled ? effortLabel : t('model_effort_off')) : '—')}</strong>
+                <span>${escapeHtml(modelName)} <i class="fas fa-chevron-right"></i></span>
+            </button>
+            <button type="button" class="model-control-reset" onclick="setModelEffort('${_wsAttr(control.defaultEffort || '')}')" aria-label="${escapeHtml(t('model_effort_reset'))}" title="${escapeHtml(t('model_effort_reset'))}" ${options.length && enabled ? '' : 'disabled'}><i class="fas fa-rotate-left"></i></button>
+        </div>
+        ${options.length ? `<div class="model-control-effort">
+            <div class="model-effort-track ${enabled ? '' : 'is-disabled'}" role="radiogroup" aria-label="${escapeHtml(t('config_reasoning_effort'))}" style="--effort-progress:calc(${percent}% + ${15 - percent * .3}px)">${dots}</div>
+        </div>` : ''}
+        ${!options.length || !enabled ? `<div class="model-control-foot"><span>${escapeHtml(status)}</span>${options.length && !enabled ? `<button type="button" onclick="enableModelThinking()">${escapeHtml(t('model_effort_enable'))}</button>` : ''}</div>` : ''}
+    </div>`;
+}
+
+function renderModelList() {
+    const menu = _modelMenu();
+    if (!menu) return;
+    const state = (_sessCfg && _sessCfg.model) || {};
+    const control = _modelControlState();
+    let providers = Array.isArray(state.providers) ? state.providers : [];
+    // Older servers can omit the current provider when bot_type is inferred.
+    // Keep the effective model visible even if no catalog was returned.
+    if (!providers.some(p => p.id === control.provider && (p.models || []).includes(control.model)) && control.model) {
+        providers = [{ id: control.provider, label: control.provider || t('model_current'), models: [control.model] }, ...providers];
+    }
     const pinned = state.source === 'session';
-
-    // Which model is currently effective (pinned or inherited from global), so
-    // the check mark shows on it even when the session follows the global model.
-    const activeModel = state.model || (state.global && state.global.model) || '';
-    const activeProvider = state.provider || (state.global && state.global.provider) || '';
-
-    const parts = [`<div class="composer-menu-title">${escapeHtml(t('model_menu_title'))}</div>`];
+    const parts = [`<div class="model-list-head"><button type="button" class="model-list-back" onclick="event.stopPropagation(); renderModelMenu()" aria-label="${escapeHtml(t('model_back'))}"><i class="fas fa-arrow-left"></i></button><span>${escapeHtml(t('model_change'))}</span></div>`];
     providers.forEach((p, idx) => {
         if (idx > 0) parts.push('<div class="composer-menu-divider"></div>');
-        const current = p.id === activeProvider ? ' data-current-provider' : '';
+        const current = p.id === control.provider ? ' data-current-provider' : '';
         parts.push(`<div class="composer-menu-title"${current}>${escapeHtml(localizedLabel(p.label))}</div>`);
         (p.models || []).forEach(m => {
-            const active = m === activeModel && p.id === activeProvider;
-            // Clicking the already-pinned model clears the pin (back to global);
-            // "follow global" is no longer a separate row.
-            const arg = (active && pinned)
-                ? 'null, null'
-                : `'${_wsAttr(p.id)}','${_wsAttr(m)}'`;
+            const active = m === control.model && p.id === control.provider;
+            const arg = (active && pinned) ? 'null, null' : `'${_wsAttr(p.id)}','${_wsAttr(m)}'`;
             const alias = _modelAlias([p], p.id, m);
-            const body = alias
-                ? `<span class="composer-menu-name">${escapeHtml(alias)}</span>
-                   <span class="composer-menu-desc break-all">${escapeHtml(m)}</span>`
-                : `<span class="composer-menu-name">${escapeHtml(m)}</span>`;
-            parts.push(`
-                <button class="composer-menu-item ${active ? 'active' : ''}"
-                        onclick="selectSessionModel(${arg})">
-                    <i class="fas fa-microchip"></i>
-                    <span class="composer-menu-body">
-                        ${body}
-                    </span>
-                    ${active ? '<i class="fas fa-check composer-menu-check"></i>' : ''}
-                </button>`);
+            const body = alias ? `<span class="composer-menu-name">${escapeHtml(alias)}</span><span class="composer-menu-desc break-all">${escapeHtml(m)}</span>` : `<span class="composer-menu-name">${escapeHtml(m)}</span>`;
+            parts.push(`<button type="button" class="composer-menu-item ${active ? 'active' : ''}" onclick="selectSessionModel(${arg})"><i class="fas fa-microchip"></i><span class="composer-menu-body">${body}</span>${active ? '<i class="fas fa-check composer-menu-check"></i>' : ''}</button>`);
         });
     });
-
+    if (!providers.length) parts.push(`<div class="model-list-empty">${escapeHtml(t('model_list_empty'))}</div>`);
     menu.innerHTML = parts.join('');
+    _scrollModelMenuToActive(menu);
+}
+
+function openReasoningSettings() {
+    _closeComposerMenus();
+    navigateTo('config');
+}
+
+// This setting is global, as indicated in the panel; a deliberate click is
+// required before custom providers receive a thinking effort.
+async function enableModelThinking() {
+    try {
+        const response = await fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: { enable_thinking: true } }) });
+        const data = await response.json();
+        if (data.status !== 'success') { _wsToast(data.message || t('session_settings_failed')); return; }
+        appConfig.enable_thinking = true;
+        const settingsToggle = document.getElementById('cfg-enable-thinking');
+        if (settingsToggle) settingsToggle.checked = true;
+        _renderModelChip();
+        renderModelMenu();
+    } catch (_) { _wsToast(t('session_settings_failed')); }
+}
+
+async function setModelEffort(value) {
+    const control = _modelControlState();
+    if (!control.enabled || !control.options.some(option => option.value === value) || !control.provider || !control.model) return;
+    try {
+        const response = await fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates: { reasoning_effort_by_model: { [control.key]: value } } }) });
+        const data = await response.json();
+        if (data.status !== 'success') { _wsToast(data.message || t('session_settings_failed')); return; }
+        const saved = (data.applied && data.applied.reasoning_effort_by_model) || { ...appConfig.reasoning_effort_by_model, [control.key]: value };
+        appConfig.reasoning_effort_by_model = saved;
+        if (typeof configReasoningByModel !== 'undefined') configReasoningByModel = saved;
+        _renderModelChip();
+        renderModelMenu();
+    } catch (_) { _wsToast(t('session_settings_failed')); }
 }
 
 // Scroll the menu (not the page) so the active model sits in the middle; a
@@ -311,7 +393,7 @@ document.addEventListener('click', (e) => {
         if (!menu || menu.classList.contains('hidden')) return;
         if (menu.contains(e.target) || (btn && btn.contains(e.target))) return;
         menu.classList.add('hidden');
-        if (btn) btn.classList.remove('open');
+        if (btn) { btn.classList.remove('open'); if (btn === _modelBtn()) btn.setAttribute('aria-expanded', 'false'); }
     });
 });
 
