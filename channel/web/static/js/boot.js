@@ -9,8 +9,11 @@ requestAuthGatedStart(loadAgentCatalog);
 requestAuthGatedStart(() => {
     fetch('/config').then(r => r.json()).then(data => {
         if (data.status === 'success') {
+            // Old backend processes may still report the original product name.
+            // Normalize it before saving appConfig so newly created chats agree.
+            if (!data.title || data.title === 'CowAgent') data.title = '灵舟 · Navora';
             appConfig = data;
-            const title = data.title || '灵舟 · Navora';
+            const title = data.title;
             document.getElementById('welcome-title').textContent = title;
             initConfigView(data);
         }

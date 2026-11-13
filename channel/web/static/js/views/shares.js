@@ -310,7 +310,7 @@ function _shareUrl(share) {
 function _shareLogoSrc(share) {
     return share && share.logo_version
         ? `/api/guest-shares/${encodeURIComponent(share.slug)}/logo?v=${share.logo_version}`
-        : '/assets/logo.jpg';
+        : '/assets/logo.jpg?v=navora2';
 }
 
 function _shareToast(text) {
@@ -777,7 +777,7 @@ function _setShareLogo(file, reset) {
     if (shareLogoPreview) URL.revokeObjectURL(shareLogoPreview);
     shareLogoPreview = file ? URL.createObjectURL(file) : '';
     const hasSaved = !!(shareEditing && shareEditing.logo_version) && !reset;
-    document.getElementById('share-ed-logo-img').src = shareLogoPreview || (hasSaved ? _shareLogoSrc(shareEditing) : '/assets/logo.jpg');
+    document.getElementById('share-ed-logo-img').src = shareLogoPreview || (hasSaved ? _shareLogoSrc(shareEditing) : '/assets/logo.jpg?v=navora2');
     document.getElementById('share-ed-logo-reset').classList.toggle('hidden', !file && !hasSaved);
     document.getElementById('share-ed-logo-file').value = '';
 }

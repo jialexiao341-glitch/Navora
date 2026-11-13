@@ -573,12 +573,11 @@ def load_config():
     global config
 
     # print ASCII logo
-    logger.info("  ____                _                    _   ")
-    logger.info(" / ___|_____      __ / \\   __ _  ___ _ __ | |_ ")
-    logger.info("| |   / _ \\ \\ /\\ / // _ \\ / _` |/ _ \\ '_ \\| __|")
-    logger.info("| |__| (_) \\ V  V // ___ \\ (_| |  __/ | | | |_ ")
-    logger.info(" \\____\\___/ \\_/\\_//_/   \\_\\__, |\\___|_| |_|\\__|")
-    logger.info("                          |___/                 ")
+    logger.info(r" _   _                                ")
+    logger.info(r"| \ | | __ ___   _____  _ __ __ _    ")
+    logger.info(r"|  \| |/ _` \ \ / / _ \| '__/ _` |   ")
+    logger.info(r"| |\  | (_| |\ V / (_) | | | (_| |   ")
+    logger.info(r"|_| \_|\__,_| \_/ \___/|_|  \__,_|   ")
     logger.info("")
     # User config lives in the data root: source deployments use CWD (./), while
     # the desktop build points COW_DATA_DIR at ~/.cow so config survives updates.
