@@ -110,6 +110,7 @@ class ChatGPTBot(Bot, OpenAIImage, OpenAICompatibleBot):
             'default_frequency_penalty': conf().get("frequency_penalty", 0.0),
             'default_presence_penalty': conf().get("presence_penalty", 0.0),
             'api_type': self._openai_api_type(),
+            'provider_id': self._bot_type,
         }
 
     def _openai_api_type(self) -> str:

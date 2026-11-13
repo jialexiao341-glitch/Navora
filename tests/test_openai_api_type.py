@@ -169,3 +169,16 @@ def test_normalize_effort_only_clamps_responses_only_models():
     assert responses_adapter.normalize_effort("none", "gpt-6-astra") == "low"
     assert responses_adapter.normalize_effort("none", "gpt-6.1-sol") == "low"
     assert responses_adapter.normalize_effort("minimal") == "low"
+
+def test_custom_deepseek_forwards_reasoning_effort(monkeypatch):
+    bot, client = _make_bot(monkeypatch, bot_type='custom:c1', model='deepseek-v4.1-flash')
+    _call_tools(bot, model='deepseek-v4.1-flash', thinking={'type':'enabled'}, reasoning_effort='low')
+    kind, params = client.calls[0]
+    assert kind == 'chat'
+    assert params['reasoning_effort'] == 'low'
+
+
+def test_custom_deepseek_omits_effort_when_thinking_off(monkeypatch):
+    bot, client = _make_bot(monkeypatch, bot_type='custom:c1', model='deepseek-v4.1-flash')
+    _call_tools(bot, model='deepseek-v4.1-flash', thinking={'type':'disabled'})
+    assert 'reasoning_effort' not in client.calls[0][1]

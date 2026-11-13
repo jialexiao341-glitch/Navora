@@ -308,3 +308,12 @@ def test_agent_bridge_preserves_thinking_blocks_for_thinking_only_models(monkeyp
     )
 
     assert captured["messages"][0]["content"][0] == {"type": "thinking", "thinking": "keep me"}
+
+
+def test_openai_gpt_6_passes_selected_reasoning_with_thinking_toggle_off(monkeypatch):
+    from config import conf
+    monkeypatch.setitem(conf(), "enable_thinking", False)
+    monkeypatch.setitem(conf(), "reasoning_effort_by_model", {"openai:gpt-6.1-sol": "medium"})
+    model, bot = _model_with_bot(monkeypatch, "openai", "gpt-6.1-sol")
+    model.call(_Request())
+    assert bot.kwargs["reasoning_effort"] == "medium"

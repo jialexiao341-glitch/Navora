@@ -169,6 +169,15 @@ class OpenAICompatibleBot:
                 if is_gpt5_reasoning:
                     request_params["reasoning_effort"] = "none"
             
+            # DeepSeek V4 over a custom OpenAI-compatible relay: pass through
+            # the explicitly selected effort when thinking is enabled. Other
+            # custom models remain untouched because their contracts vary.
+            provider = str(api_config.get("provider_id") or "")
+            thinking = kwargs.get("thinking") or {}
+            effort = kwargs.get("reasoning_effort")
+            if (provider == "custom" or provider.startswith("custom:")) and str(model_name).lower().startswith(("deepseek-v4", "deepseek-flash")) and thinking.get("type") == "enabled" and effort in ("low", "high", "max"):
+                request_params["reasoning_effort"] = effort
+
             # Make API call with proper configuration
             api_key = api_config.get('api_key')
             api_base = api_config.get('api_base')

@@ -101,6 +101,18 @@ def get_reasoning_capability(provider_id: str, model_name: str = "") -> dict:
     base_pid = _base_provider_id(provider_id)
     model = (model_name or "").strip().lower()
 
+    # These GPT-6 variants use the Responses tool path in this project and
+    # expose exactly these levels; leave other GPT models hidden until their
+    # particular request path can honor the selected setting.
+    if base_pid == "openai" and model.startswith(("gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna")):
+        return _capability(["low", "medium", "high", "xhigh", "max"], default="medium", thinking_only=True)
+
+    # OpenAI-compatible gateways may relay DeepSeek's reasoning_effort field.
+    # Only recognize the native DeepSeek V4 names; arbitrary custom models
+    # continue to have no assumed reasoning support.
+    if base_pid == "custom" and model.startswith(DEEPSEEK_THINKING_MODELS):
+        return _capability(["low", "high", "max"], default="high")
+
     if base_pid == "deepseek" and model.startswith(DEEPSEEK_THINKING_MODELS):
         return _capability(DEEPSEEK_VALUES, default="high")
 

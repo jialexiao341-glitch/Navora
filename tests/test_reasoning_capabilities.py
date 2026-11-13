@@ -282,3 +282,15 @@ def test_normalization_always_outputs_valid_native_enum():
                 f"{provider}:{model} legacy={value!r} -> {result!r} "
                 f"not in allowed {allowed}"
             )
+
+def test_openai_gpt_6_reasoning_levels():
+    cap = get_reasoning_capability('openai', 'gpt-6.1-sol')
+    assert cap['thinking_only'] is True
+    assert cap['default'] == 'medium'
+    assert _values(cap) == ['low', 'medium', 'high', 'xhigh', 'max']
+
+@pytest.mark.parametrize('provider', ['custom', 'custom:c1'])
+def test_custom_deepseek_exposes_reasoning_levels(provider):
+    cap = get_reasoning_capability(provider, 'deepseek-v4.1-flash')
+    assert _values(cap) == ['low', 'high', 'max']
+    assert resolve_reasoning_effort(provider, 'deepseek-v4.1-flash', {f'{provider}:deepseek-v4.1-flash': 'low'}, 'high') == 'low'
