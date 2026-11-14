@@ -7,6 +7,7 @@
             <button id="ambient-sounds-tab" type="button" role="tab" aria-selected="false" aria-controls="ambient-sounds-view" data-i18n="sounds_tab">环境音</button>
             <button id="ambient-leisure-tab" type="button" role="tab" aria-selected="false" aria-controls="ambient-leisure-view" data-i18n="leisure_tab">轻松聊</button>
             <button id="ambient-focus-tab" type="button" role="tab" aria-selected="false" aria-controls="ambient-focus-view" data-i18n="focus_tab">专注计时</button>
+            <button id="ambient-pet-tab" type="button" role="tab" aria-selected="false" aria-controls="ambient-pet-view">桌宠</button>
         </div>
         <div id="ambient-music-view" role="tabpanel" aria-labelledby="ambient-music-tab">
         <div class="ambient-now"><span class="ambient-art"><i class="fas fa-music" aria-hidden="true"></i></span><div><small data-i18n="ambient_now">正在播放</small><strong id="ambient-title"></strong></div></div>
@@ -34,7 +35,6 @@
                 <button type="button" class="sounds-choice leisure-choice" data-leisure="story"><i class="fas fa-book-open" aria-hidden="true"></i><span><strong data-i18n="leisure_story">故事接龙</strong><small data-i18n="leisure_story_desc">一起写一个意想不到的故事</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
                 <button type="button" class="sounds-choice leisure-choice" data-leisure="trivia"><i class="fas fa-star" aria-hidden="true"></i><span><strong data-i18n="leisure_trivia">趣味问答</strong><small data-i18n="leisure_trivia_desc">发现有趣的小知识</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
             </div>
-            <label class="companion-setting"><span><strong data-i18n="companion_title">灵舟小伙伴</strong><small data-i18n="companion_hint">在页面角落陪伴你</small></span><input id="companion-enabled" type="checkbox" role="switch"></label>
             <p class="leisure-note" data-i18n="leisure_note">话题会填入输入框，确认后由你发送；使用当前模型，可能产生正常费用。</p>
         </div>
         <div id="ambient-focus-view" role="tabpanel" aria-labelledby="ambient-focus-tab" hidden>
@@ -44,6 +44,18 @@
             <div class="focus-actions"><button id="focus-start" type="button" data-i18n="focus_start">开始</button><button id="focus-reset" type="button" data-i18n="focus_reset">重置</button></div>
             <p id="focus-status" class="focus-status" role="status"></p>
         </div>
+<section id="ambient-pet-view" class="pet-settings" role="tabpanel" aria-labelledby="ambient-pet-tab" hidden>
+    <label>选择桌宠<select id="pet-character"><option value="shenshen">深深</option><option value="doro">Doro</option></select></label>
+    <label>显示桌宠<input id="pet-enabled" type="checkbox" role="switch"></label>
+    <label>显示大小<select id="pet-size"><option value="240">小</option><option value="320">标准</option><option value="400">大</option><option value="480">超大</option></select></label>
+    <label>自由漫游<input id="pet-roam" type="checkbox"></label>
+    <label>锁定位置<input id="pet-lock" type="checkbox"></label>
+    <label>播放动作<select id="pet-animation"><option value="">选择动作</option></select></label>
+    <div class="pet-actions"><button id="pet-sleep" type="button">睡觉</button><button id="pet-hide" type="button">隐藏桌宠</button></div>
+    <div class="pet-actions"><button id="pet-open-chat" type="button">回到对话</button></div>
+    <p id="pet-status" role="status">点击互动 · 拖动甩抛 · 右键设置</p>
+    <small>素材来源：<a id="pet-source" href="https://github.com/MerZlin/dsh-pet-indesktop" target="_blank" rel="noopener noreferrer">MerZlin/dsh-pet-indesktop</a> · 角色素材仅限个人非商业使用</small>
+</section>
         <input id="ambient-files" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac" multiple hidden><audio id="ambient-audio" preload="metadata"></audio>
     </section>
     <button id="ambient-toggle" class="ambient-toggle" type="button" aria-controls="ambient-panel" aria-expanded="false" data-i18n-aria-label="ambient_title" aria-label="休闲空间"><svg class="ambient-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false">
@@ -55,14 +67,7 @@
         </svg><span id="focus-badge" class="focus-badge" hidden></span></button>
 </div>
 
-<div id="companion" class="companion" hidden>
-    <button id="companion-character" class="companion-character" type="button" data-i18n-aria-label="companion_title" aria-label="灵舟小伙伴" aria-haspopup="dialog" aria-controls="companion-panel" aria-expanded="false">
-        <span id="companion-art" class="companion-art companion-sprite" aria-hidden="true"></span>
-    </button><span id="companion-message" class="companion-message" role="status"></span>
-    <div id="companion-panel" class="companion-panel" role="dialog" data-i18n-aria-label="companion_title" aria-label="灵舟小伙伴" hidden>
-        <strong data-i18n="companion_title">灵舟小伙伴</strong><p id="companion-state"></p>
-        <label class="companion-select-label"><span data-i18n="companion_choose">选择伙伴</span><select id="companion-style"><option value="tuantuan" data-i18n="companion_tuantuan">团子 · 温柔</option><option value="tiaotiao" data-i18n="companion_tiaotiao">跳跳 · 活泼</option><option value="momo" data-i18n="companion_momo">墨墨 · 沉稳</option><option value="xiaoya" data-i18n="companion_xiaoya">小芽 · 好奇</option></select></label>
-        <button id="companion-open-chat" type="button" data-i18n="companion_open_chat">打开对话</button>
-    </div>
-    <button id="companion-close" class="companion-close" type="button" data-i18n-aria-label="companion_hide" aria-label="隐藏小伙伴">×</button>
+<button id="pet-task-bubble" class="pet-task-bubble" type="button" title="打开当前对话">我在这里陪你，点这里开始对话。</button>
+<div id="indesktop-pet" class="indesktop-pet" tabindex="0" role="button" aria-label="深深桌宠，点击互动，右键打开设置" hidden>
+    <video muted playsinline preload="auto"></video><video muted playsinline preload="auto"></video><canvas hidden></canvas>
 </div>

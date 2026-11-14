@@ -1,0 +1,22 @@
+/* Web host for dsh-pet-indesktop; visual controls follow Navora's existing tokens. */
+.indesktop-pet { --pet-size:320px; position:fixed; z-index:55; width:calc(var(--pet-size) * .46); height:calc(var(--pet-size) * .49); touch-action:none; cursor:grab; }
+.indesktop-pet[hidden],.pet-settings[hidden] { display:none; }
+.indesktop-pet video { position:absolute; pointer-events:none; width:var(--pet-size); max-width:none; height:calc(var(--pet-size) * .5625); left:50%; bottom:calc(var(--pet-size) * -.046875); transform:translateX(-50%); opacity:0; }
+.indesktop-pet video.active { opacity:1; }
+.indesktop-pet canvas { position:absolute; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+.indesktop-pet canvas[hidden] { display:none; }
+.indesktop-pet.flipped canvas { transform:scaleX(-1); }
+.indesktop-pet.flipped video { transform:translateX(-50%) scaleX(-1); }
+.indesktop-pet:active { cursor:grabbing; }
+.pet-settings { padding-top:16px; color:rgb(var(--cw-slate-700)); font-size:13px; }
+.pet-settings header,.pet-settings label { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+.pet-settings header button { font-size:22px; padding:0 6px; }
+.pet-settings select { padding:5px; border:1px solid rgb(var(--cw-slate-200)); border-radius:6px; background:rgb(var(--cw-panel)); }
+.pet-settings input { accent-color:rgb(var(--cw-primary-500)); }
+.pet-actions { display:flex; gap:8px; }.pet-actions button { flex:1; padding:8px; border-radius:8px; background:rgb(var(--cw-primary-50)); color:rgb(var(--cw-primary-600)); }
+.pet-actions + .pet-actions { margin-top:8px; }
+.pet-task-bubble { position:fixed; z-index:56; width:220px; max-width:calc(100vw - 16px); padding:8px 12px; border:1px solid rgb(var(--cw-slate-200)); border-radius:12px; background:rgb(var(--cw-panel)); color:rgb(var(--cw-slate-700)); text-align:left; font-size:12px; overflow-wrap:anywhere; }
+.pet-task-bubble[hidden] { display:none; }.dark .pet-task-bubble { color:rgb(var(--cw-slate-200)); }
+.pet-settings p,.pet-settings small { display:block; margin-top:12px; font-size:11px; color:rgb(var(--cw-slate-500)); }
+.pet-settings a { text-decoration:underline; }.dark .pet-settings { color:rgb(var(--cw-slate-200)); }
+.indesktop-pet:focus-visible,.pet-settings button:focus-visible,.pet-settings select:focus-visible { outline:2px solid rgb(var(--cw-primary-400)); outline-offset:3px; }

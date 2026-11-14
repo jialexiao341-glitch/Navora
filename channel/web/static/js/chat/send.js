@@ -400,7 +400,7 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
     // re-attach replay alike, so both paths produce identical UI.
     let lastCompanionPhase = '';
     function processSSEItem(item) {
-            const companionPhaseKey = ['reasoning', 'tool_start', 'tool_end', 'delta'].includes(item.type) ? `${item.type}:${item.tool || ''}` : '';
+            const companionPhaseKey = ['reasoning', 'tool_start', 'tool_end', 'delta', 'cancelled', 'error'].includes(item.type) ? `${item.type}:${item.tool || ''}` : '';
             if (isActive() && companionPhaseKey && companionPhaseKey !== lastCompanionPhase) {
                 lastCompanionPhase = companionPhaseKey;
                 document.dispatchEvent(new CustomEvent('navora:companion-phase', {detail: {type: item.type, tool: item.tool || ''}}));
@@ -865,6 +865,7 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
                 if (isActive()) reloadHistoryView();
 
             } else if (item.type === 'error') {
+                if (isActive()) document.dispatchEvent(new CustomEvent('navora:companion-phase', {detail:{type:'error'}}));
                 done = true;
                 settlePendingTools();
                 if (currentEs) { currentEs.close(); }
@@ -935,6 +936,7 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
                     notifyTaskFinished(ownerSession, 'done', item.content, ownerAgent);
                 }
             } else if (item.type === 'error') {
+                if (isActive()) document.dispatchEvent(new CustomEvent('navora:companion-phase', {detail:{type:'error'}}));
                 if (!cancelled && !mainDone && !isSchedulerRequest(requestId)) notifyTaskFinished(ownerSession, 'error', '', ownerAgent);
             } else if (
                 item.type === 'voice_attach'
