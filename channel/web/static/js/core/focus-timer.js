@@ -18,6 +18,11 @@ if (typeof document !== 'undefined') (() => {
     } catch (_) {}
     const tr = key => t('focus_' + key);
     const save = () => { try { sessionStorage.setItem(storageKey, JSON.stringify(state)); } catch (_) {} };
+    const emitFocus = (completed = false) => {
+        document.dispatchEvent(new CustomEvent('navora:focus-state', {
+            detail: { running: state.deadline != null, mode: state.mode, remaining: focusRemaining(state, Date.now()), completed }
+        }));
+    };
     const clock = ms => { const sec = Math.ceil(ms / 1000); return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); };
     function render() {
         const running = state.deadline != null;
@@ -30,7 +35,7 @@ if (typeof document !== 'undefined') (() => {
         el('focus-break').setAttribute('aria-pressed', String(state.mode === 'break'));
         const badge = el('focus-badge'); badge.hidden = !running; badge.textContent = running ? clock(remaining) : '';
     }
-    function reset() { state.deadline = null; state.started = false; state.remaining = state[state.mode] * 60000; el('focus-status').textContent = ''; save(); render(); }
+    function reset() { state.deadline = null; state.started = false; state.remaining = state[state.mode] * 60000; el('focus-status').textContent = ''; save(); render(); emitFocus(false); }
     function tick() {
         if (state.deadline != null && focusRemaining(state, Date.now()) === 0) {
             state.deadline = null; state.started = false; state.remaining = state[state.mode] * 60000;
@@ -41,16 +46,17 @@ if (typeof document !== 'undefined') (() => {
             if (typeof playNotifyBeep === 'function') playNotifyBeep();
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) new Notification(tr('tab'), {body: message});
             save();
+            emitFocus(true);
         }
         render();
     }
     function switchView(view) {
-        for (const name of ['music', 'sounds', 'leisure', 'focus', 'pet']) {
+        for (const name of ['music', 'sounds', 'leisure', 'focus']) {
             el('ambient-' + name + '-view').hidden = name !== view;
             el('ambient-' + name + '-tab').setAttribute('aria-selected', String(name === view));
         }
     }
-    for (const name of ['music', 'sounds', 'leisure', 'focus', 'pet']) el('ambient-' + name + '-tab').addEventListener('click', () => switchView(name));
+    for (const name of ['music', 'sounds', 'leisure', 'focus']) el('ambient-' + name + '-tab').addEventListener('click', () => switchView(name));
     for (const mode of ['work', 'break']) el('focus-' + mode).addEventListener('click', () => { if (state.mode !== mode) { state.mode = mode; reset(); } });
     el('focus-minutes').addEventListener('change', e => {
         const n = normalizeFocusMinutes(e.target.value);
@@ -63,9 +69,10 @@ if (typeof document !== 'undefined') (() => {
             if (!state.started) { const n = normalizeFocusMinutes(el('focus-minutes').value); if (n === null) { el('focus-status').textContent = tr('invalid'); return; } state[state.mode] = n; state.remaining = n * 60000; }
             state.deadline = Date.now() + state.remaining; state.started = true; el('focus-status').textContent = '';
         }
-        save(); render();
+        save(); render(); emitFocus(false);
     });
     el('focus-reset').addEventListener('click', reset);
     document.addEventListener('visibilitychange', tick);
     setInterval(tick, 1000); tick();
+    if (state.deadline != null) emitFocus(false);
 })();
