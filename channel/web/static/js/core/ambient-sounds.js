@@ -21,7 +21,8 @@ if (typeof document !== 'undefined') (() => {
     let context, source, gain, active = '';
     try { const value = Number(localStorage.getItem('navora_ambient_sound_volume')); if (localStorage.getItem('navora_ambient_sound_volume') !== null && Number.isFinite(value) && value >= 0 && value <= 1) volume.value = value; } catch (_) {}
     function render() { buttons.forEach(button => { const on = button.dataset.sound === active; button.setAttribute('aria-pressed', String(on)); button.querySelector('.sounds-icon').className = 'fas ' + (on ? 'fa-pause' : 'fa-play') + ' sounds-icon'; }); }
-    function stop() { if (source) { source.stop(); source.disconnect(); source = null; } active = ''; render(); }
+    const emitSound = () => document.dispatchEvent(new CustomEvent('navora:ambient-audio', { detail: { source: 'sound', playing: Boolean(active), kind: active } }));
+    function stop() { if (source) { source.stop(); source.disconnect(); source = null; } active = ''; render(); emitSound(); }
     async function toggle(kind) {
         if (active === kind) { stop(); return; }
         try {
@@ -31,7 +32,7 @@ if (typeof document !== 'undefined') (() => {
             await context.resume();
             const buffer = context.createBuffer(1, context.sampleRate * 8, context.sampleRate);
             buffer.copyToChannel(makeAmbientNoise(kind, context.sampleRate, 8), 0);
-            stop(); gain.gain.value = Number(volume.value); source = context.createBufferSource(); source.buffer = buffer; source.loop = true; source.connect(gain); source.start(); active = kind; status.textContent = ''; render();
+            stop(); gain.gain.value = Number(volume.value); source = context.createBufferSource(); source.buffer = buffer; source.loop = true; source.connect(gain); source.start(); active = kind; status.textContent = ''; render(); emitSound();
         } catch (_) { status.textContent = t('sounds_error'); }
     }
     buttons.forEach(button => button.addEventListener('click', () => toggle(button.dataset.sound)));

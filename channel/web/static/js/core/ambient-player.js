@@ -76,8 +76,10 @@ if (typeof document !== 'undefined') {
         $('progress').addEventListener('input', e => { if (duration()) audio.currentTime = duration() * Number(e.target.value) / 1000; });
         audio.addEventListener('timeupdate', () => { $('progress').value = duration() ? audio.currentTime / duration() * 1000 : 0; $('time').textContent = `${fmt(audio.currentTime)} / ${fmt(duration())}`; });
         audio.addEventListener('loadedmetadata', () => { $('time').textContent = `${fmt(audio.currentTime)} / ${fmt(duration())}`; });
-        audio.addEventListener('play', render); audio.addEventListener('pause', render);
-        audio.addEventListener('ended', () => { const next = queue.next($('loop').checked); if (next) load(true); else render(); });
+        const emitAudio = () => document.dispatchEvent(new CustomEvent('navora:ambient-audio', { detail: { source: 'music', playing: !audio.paused && !audio.ended } }));
+        audio.addEventListener('play', () => { render(); emitAudio(); });
+        audio.addEventListener('pause', () => { render(); emitAudio(); });
+        audio.addEventListener('ended', () => { const next = queue.next($('loop').checked); if (next) load(true); else { render(); emitAudio(); } });
         audio.addEventListener('error', () => { if (queue.current()) status(text('error')); });
         window.addEventListener('beforeunload', () => queue.clear());
         const toggle = $('toggle');

@@ -399,11 +399,16 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
     // Render one SSE event into the bubble. Used by the live handler and by
     // re-attach replay alike, so both paths produce identical UI.
     let lastCompanionPhase = '';
+    function activeCompanionSpeaker() {
+        const speaker = peerSpeaker() || liveSpeakerAgent(requestId);
+        return (speaker && (speaker.name || speaker.id)) || '';
+    }
     function processSSEItem(item) {
-            const companionPhaseKey = ['reasoning', 'tool_start', 'tool_end', 'delta', 'cancelled', 'error'].includes(item.type) ? `${item.type}:${item.tool || ''}` : '';
+            const speakerName = activeCompanionSpeaker();
+            const companionPhaseKey = ['reasoning', 'tool_start', 'tool_end', 'delta', 'cancelled', 'error'].includes(item.type) ? `${item.type}:${item.tool || ''}:${speakerName}` : '';
             if (isActive() && companionPhaseKey && companionPhaseKey !== lastCompanionPhase) {
                 lastCompanionPhase = companionPhaseKey;
-                document.dispatchEvent(new CustomEvent('navora:companion-phase', {detail: {type: item.type, tool: item.tool || ''}}));
+                document.dispatchEvent(new CustomEvent('navora:companion-phase', {detail: {type: item.type, tool: item.tool || '', speakerName}}));
             }
             if (item.type !== 'delta') flushDeltaRender();
             if (item.type === 'reasoning') {
@@ -775,7 +780,7 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
                 }
                 settlePendingTools();
                 resetSendBtnSendMode();
-                if (!cancelled && isActive()) document.dispatchEvent(new Event('navora:reply-complete'));
+                if (!cancelled && isActive()) document.dispatchEvent(new CustomEvent('navora:reply-complete', {detail: {speakerName: activeCompanionSpeaker()}}));
 
                 const finalTextRaw = item.content || accumulatedText;
                 // A stopped reply is already marked by its status line.
