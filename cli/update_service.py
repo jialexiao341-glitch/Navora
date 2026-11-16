@@ -23,7 +23,7 @@ from cli.utils import _ensure_project_on_path, get_project_root
 
 logger = logging.getLogger(__name__)
 
-GITHUB_REPO = "zhayujie/CowAgent"
+GITHUB_REPO = os.environ.get("NAVORA_GITHUB_REPO", "jialexiao341-glitch/Navora")
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 STATUS_RELATIVE = Path("tmp") / "web-update-status.json"
 

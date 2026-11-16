@@ -14,7 +14,7 @@ let APP_VERSION = '';
 // =====================================================================
 // One-click update — driven from the sidebar version menu
 // =====================================================================
-const GITHUB_RELEASES_URL = 'https://github.com/zhayujie/CowAgent/releases';
+const GITHUB_RELEASES_URL = 'https://github.com/jialexiao341-glitch/Navora/releases';
 let UPDATE_META = { version: '', install_kind: 'unknown', update_supported: false, unsupported_reason: '', manage_url: '' };
 let UPDATE_CHECK = null;
 let _updateChecking = false;
