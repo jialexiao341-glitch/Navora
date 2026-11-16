@@ -62,3 +62,72 @@ test('Doro frame sequences are ordered numerically and match imported hashes',()
   }
  }
 });
+
+test('move stride curves keep stationary lead-in/lead-out frames anchored without ghost sliding',()=>{
+ const {sampleMoveCurve}=require('../channel/web/static/js/core/indesktop-pet.js');
+ const strides=JSON.parse(fs.readFileSync(path.join(__dirname,'../channel/web/static/vendor/dsh-pet/assets/characters/shenshen/videos/move_strides.json')));
+ const runCurve=strides['左转奔跑'].curve;
+ assert.equal(sampleMoveCurve(runCurve,0),0);
+ assert.equal(sampleMoveCurve(runCurve,0.1),0);
+ assert.ok(sampleMoveCurve(runCurve,0.35)>0 && sampleMoveCurve(runCurve,0.35)<1);
+ assert.equal(sampleMoveCurve(runCurve,0.85),1);
+ assert.equal(sampleMoveCurve(null,0.05),0);
+ assert.equal(sampleMoveCurve(null,0.95),1);
+ assert.ok(Math.abs(sampleMoveCurve(null,0.5)-0.5)<1e-12);
+});
+
+test('petShouldFlip matches default facing of Shenshen and Doro so neither walks backwards',()=>{
+ const {petShouldFlip}=require('../channel/web/static/js/core/indesktop-pet.js');
+ assert.equal(petShouldFlip({name:'左转奔跑'},-1,'shenshen'),false);
+ assert.equal(petShouldFlip({name:'左转奔跑'},1,'shenshen'),true);
+ assert.equal(petShouldFlip({name:'螃蟹走路'},-1,'shenshen'),false);
+ assert.equal(petShouldFlip({name:'漂浮踏步'},1,'shenshen'),false);
+ assert.equal(petShouldFlip({path:'move',name:'移动'},-1,'doro'),false);
+ assert.equal(petShouldFlip({path:'move',name:'移动'},1,'doro'),true);
+});
+
+test('inward direction and move distance clamp prevent walking into screen walls',()=>{
+ const {petChooseMoveDirection,petPlannedMoveDistance}=require('../channel/web/static/js/core/indesktop-pet.js');
+ assert.equal(petChooseMoveDirection(20,1200,148,80,()=>0.1),1);
+ assert.equal(petChooseMoveDirection(1000,1200,148,80,()=>0.9),-1);
+ assert.equal(petPlannedMoveDistance(240,320,500,1,1200,148,16),240);
+ assert.equal(petPlannedMoveDistance(240,320,1000,1,1200,148,16),36);
+ assert.equal(petPlannedMoveDistance(240,240,500,1,1200,110,16),180);
+});
+
+test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and hover/quick-chat markup',()=>{
+ const {
+  petSafePlace,petSnapTarget,petTaskStatus,petFocusReaction,petAmbientReaction,petClickLine
+ }=require('../channel/web/static/js/core/indesktop-pet.js');
+
+ const composer={left:200,top:620,right:900,bottom:740};
+ const avoided=petSafePlace(400,640,1200,800,150,160,[composer],8);
+ assert.equal(avoided.avoided,true);
+ assert.ok(avoided.y+160<=composer.top-8 || avoided.x+150<=composer.left-8 || avoided.x>=composer.right+8);
+
+ const docked=petSnapTarget(360,445,1200,800,150,160,composer,24);
+ assert.equal(docked.docked,true);
+ assert.equal(docked.y,460);
+
+ assert.equal(petTaskStatus('tool_start','bash').phase,'terminal');
+ assert.equal(petTaskStatus('tool_start','memory_search').phase,'memory');
+ assert.equal(petTaskStatus('tool_start','delegate',{speakerName:'Coder'}).text,'[Coder] 正在执行：delegate');
+
+ assert.equal(petFocusReaction({running:true,mode:'work'}).clipGroup,'focus');
+ assert.equal(petFocusReaction({running:false,mode:'work',completed:true}).clipGroup,'celebrate');
+ assert.equal(petAmbientReaction({musicPlaying:true,soundKind:''}).active,true);
+
+ for(const id of ['shenshen','doro']) {
+  assert.ok(petClickLine(id,()=>0).length>0);
+ }
+
+ const html=fs.readFileSync(path.join(__dirname,'../channel/web/templates/layout/ambient-player.html'),'utf8');
+ assert.ok(!html.includes('ambient-pet-tab'));
+ assert.ok(!html.includes('ambient-pet-view'));
+ for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','ambient-pet-restore','pet-passthrough','pet-sound','shenshen','doro']) {
+  assert.ok(html.includes(id),id);
+ }
+ for(const removed of ['xiaoya','lanlan','paopao','momo']) {
+  assert.ok(!html.includes(removed),removed);
+ }
+});
