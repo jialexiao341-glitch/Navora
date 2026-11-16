@@ -25,40 +25,17 @@ export type UpdateStatus =
 
 let getWindow: () => BrowserWindow | null = () => null
 
-// Legacy Windows (7/8/8.1) runs the separate Electron-22 build, which must
-// update to OTHER legacy builds — never the standard build (Electron 33 won't
-// launch on Win7). The update Function serves that build under /update/legacy/.
-// We detect the old OS at runtime (os.release() reports the Windows NT version:
-// 6.1 = Win7, 6.2/6.3 = Win8/8.1, 10.x = Win10/11) rather than via a build
-// flag, so the same source serves the right feed on whatever it runs on.
-function isLegacyWindows(): boolean {
-  if (process.platform !== 'win32') return false
-  const major = Number((os.release() || '').split('.')[0])
-  // NT 6.x = Win7/8/8.1; NT 10.x = Win10/11. Old = major < 10.
-  return Number.isFinite(major) && major < 10
-}
+const GITHUB_OWNER = 'jialexiao341-glitch'
+const GITHUB_REPO = 'Navora'
 
-// A bundled app-config may point the updater at a different feed origin. When
-// set, that single URL is used as-is (no China/R2 dual-origin switching, which
-// is specific to the default build's infrastructure). Absent -> default feed.
-const CONFIGURED_FEED = (loadAppConfig()?.updateFeedUrl || '').trim()
-
-// The update feed. Both entries hit the same /update/ endpoint; the ?lang=zh
-// query tells it to 302 installer downloads to the China CDN mirror instead of
-// R2. The feed metadata is identical either way, so we can freely switch the
-// feed URL between attempts to fall back from one download origin to the
-// other. Legacy Windows appends a /legacy/ segment so it gets the win-legacy
-// release instead of the standard.
-// The endpoint is served by two hosts with the same feed. The first is the
-// default; a check that fails on the current host is retried once on the
-// other, and whichever answered stays in use for the session.
-const FEED_HOSTS = ['https://cowagent.ai', 'https://cowagent.cn']
-let feedHost = 0
-const feedBase = () => `${FEED_HOSTS[feedHost]}/update/` + (isLegacyWindows() ? 'legacy/' : '')
-const feedUrlFor = (china: boolean) => {
-  if (CONFIGURED_FEED) return withFeedQuery(CONFIGURED_FEED)
-  return withFeedQuery(china ? `${feedBase()}?lang=zh` : feedBase())
-}
+// A bundled app-config (or NAVORA_UPDATE_FEED_URL env) may point the updater at a
+// custom generic feed URL; otherwise updates resolve against Navora's GitHub Releases
+// repository. Never fall back to upstream CowAgent hosts.
+const CONFIGURED_FEED = (
+  process.env.NAVORA_UPDATE_FEED_URL ||
+  loadAppConfig()?.updateFeedUrl ||
+  ''
+).trim()
 
 // A channel set explicitly at build time (publish.channel) names a dedicated
 // feed file, e.g. one per Windows generation. setFeedURL replaces the packaged
@@ -83,10 +60,7 @@ function packagedChannel(): string | undefined {
   return packagedChannelCache ?? undefined
 }
 
-// Extra query parameters the renderer may attach to the feed URL, so a feed
-// server can tailor its answer to this install. Empty unless set, in which
-// case the feed URL is used exactly as above. electron-updater carries the
-// feed URL's query over to the files it resolves from it.
+// Extra query parameters the renderer may attach to a custom generic feed URL.
 let feedQuery: Record<string, string> = {}
 const FEED_QUERY_KEY = /^[A-Za-z0-9_-]{1,32}$/
 const FEED_QUERY_MAX_ENTRIES = 8
@@ -104,31 +78,36 @@ function withFeedQuery(url: string): string {
   }
 }
 
-// Which origin the current session prefers, derived from the app UI language
-// (zh -> China mirror). Downloads that fail on the preferred origin retry once
-// on the other one before surfacing an error.
-let preferChina = false
-// Guard so a single download only ever falls back once (avoids ping-pong).
-let downloadFellBack = false
-
 function applyFeedUrl(): void {
-  const url = feedUrlFor(preferChina)
   const channel = packagedChannel()
   try {
-    autoUpdater.setFeedURL({ provider: 'generic', url, ...(channel ? { channel } : {}) })
-    log(`feed url set: ${url} (preferChina=${preferChina}${channel ? `, channel=${channel}` : ''})`)
+    if (CONFIGURED_FEED) {
+      const parsed = new URL(CONFIGURED_FEED)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        throw new Error(`Unsupported update feed protocol: ${parsed.protocol}`)
+      }
+      const url = withFeedQuery(CONFIGURED_FEED)
+      autoUpdater.setFeedURL({ provider: 'generic', url, ...(channel ? { channel } : {}) })
+      log(`feed url set (generic): ${url}${channel ? ` (channel=${channel})` : ''}`)
+      return
+    }
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: GITHUB_OWNER,
+      repo: GITHUB_REPO,
+      ...(channel ? { channel } : {}),
+    })
+    log(`feed url set (github): ${GITHUB_OWNER}/${GITHUB_REPO}${channel ? ` (channel=${channel})` : ''}`)
   } catch (err) {
-    log(`feed url set failed: ${(err as Error)?.message || String(err)}`)
+    const message = (err as Error)?.message || String(err)
+    log(`feed url set failed: ${message}`)
+    send({ state: 'error', message })
   }
 }
 
 // Called from the check/download IPC with the renderer's current UI language.
-export function setUpdateLanguage(lang: string | undefined): void {
-  const china = (lang || '').toLowerCase().startsWith('zh')
-  if (china !== preferChina) {
-    preferChina = china
-    if (app.isPackaged) applyFeedUrl()
-  }
+export function setUpdateLanguage(_lang: string | undefined): void {
+  // Retained for IPC compatibility; feed routing no longer uses mirror language flags.
 }
 
 // Replace the extra feed query (see feedQuery). Invalid keys and non-string
@@ -145,7 +124,7 @@ export function setUpdateFeedQuery(params: unknown): void {
   }
   if (JSON.stringify(next) === JSON.stringify(feedQuery)) return
   feedQuery = next
-  if (app.isPackaged) applyFeedUrl()
+  if (app.isPackaged && CONFIGURED_FEED) applyFeedUrl()
 }
 
 // Persist update logs to a file so a user hitting a silent "spinner never
@@ -215,8 +194,7 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
   // "not-available" fires — the UI just spins forever.
   autoUpdater.allowPrerelease = true
   autoUpdater.allowDowngrade = false
-  // Point at the preferred origin up front (defaults to R2; switched to the CN
-  // mirror once the renderer reports a zh UI language via setUpdateLanguage).
+  // Point at the configured Navora update feed (or GitHub Releases by default).
   applyFeedUrl()
   // Route electron-updater's own internal logging to our file too, so we
   // capture the feed URL, parsed versions and any stack traces it logs.
@@ -255,9 +233,6 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
   autoUpdater.on('error', (err) => {
     const message = err == null ? 'unknown' : err.message || String(err)
     log(`error: ${message}`, err instanceof Error && err.stack ? err.stack : '')
-    // runCheck retries this check on the other feed host, so the user only
-    // hears about it if that attempt fails too.
-    if (checkRetryPending) return
     send({ state: 'error', message })
   })
 }
@@ -294,32 +269,21 @@ export function checkForUpdates(userInitiated = false): void {
     return
   }
   log(`checkForUpdates: requesting feed, current=${app.getVersion()}`)
-  runCheck(!CONFIGURED_FEED)
+  runCheck()
 }
 
 let checkInFlight = false
-// True while a failed check is still going to be retried on the other host.
-let checkRetryPending = false
 
-function runCheck(retryOnOtherHost: boolean): void {
+function runCheck(): void {
   checkInFlight = true
-  checkRetryPending = retryOnOtherHost
   autoUpdater
     .checkForUpdates()
     .then(() => {
       checkInFlight = false
-      checkRetryPending = false
     })
     .catch((err) => {
       const message = err?.message || String(err)
       log(`checkForUpdates: request failed: ${message}`, err instanceof Error && err.stack ? err.stack : '')
-      if (checkRetryPending) {
-        feedHost = (feedHost + 1) % FEED_HOSTS.length
-        applyFeedUrl()
-        log(`checkForUpdates: retrying on ${FEED_HOSTS[feedHost]}`)
-        runCheck(false)
-        return
-      }
       checkInFlight = false
       send({ state: 'error', message })
     })
@@ -327,37 +291,10 @@ function runCheck(retryOnOtherHost: boolean): void {
 
 export function startDownload(): void {
   if (!app.isPackaged) return
-  downloadFellBack = false
-  log(`startDownload: user requested download (preferChina=${preferChina})`)
-  attemptDownload()
-}
-
-// Download from the current origin; on failure, switch to the OTHER origin once
-// and retry. This is the client-side "mirrors back each other" fallback: R2 and
-// the China CDN hold identical bytes, so a slow/blocked origin can be swapped
-// transparently without the user noticing.
-function attemptDownload(): void {
+  log('startDownload: user requested download')
   autoUpdater.downloadUpdate().catch((err) => {
     const message = err?.message || String(err)
-    log(`startDownload: failed on ${preferChina ? 'CN' : 'R2'}: ${message}`, err instanceof Error && err.stack ? err.stack : '')
-    if (!downloadFellBack) {
-      downloadFellBack = true
-      preferChina = !preferChina
-      applyFeedUrl()
-      log(`startDownload: retrying on ${preferChina ? 'CN' : 'R2'} mirror`)
-      // Re-check first so electron-updater re-reads the feed from the new origin
-      // before downloading (its cached updateInfo is origin-agnostic here, but a
-      // fresh check keeps the internal state consistent).
-      autoUpdater
-        .checkForUpdates()
-        .then(() => autoUpdater.downloadUpdate())
-        .catch((err2) => {
-          const m2 = err2?.message || String(err2)
-          log(`startDownload: fallback also failed: ${m2}`, err2 instanceof Error && err2.stack ? err2.stack : '')
-          send({ state: 'error', message: m2 })
-        })
-      return
-    }
+    log(`startDownload: failed: ${message}`, err instanceof Error && err.stack ? err.stack : '')
     send({ state: 'error', message })
   })
 }

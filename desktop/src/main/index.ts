@@ -150,7 +150,7 @@ applyCachedAppName()
 // they are silently dropped. Harmless on macOS/Linux.
 if (process.platform === 'win32') {
   // Must match the installer's appId, which stamps it on the shortcuts.
-  app.setAppUserModelId(loadAppConfig()?.appUserModelId || 'com.cowagent.desktop')
+  app.setAppUserModelId(loadAppConfig()?.appUserModelId || 'com.navora.desktop')
 }
 
 let mainWindow: BrowserWindow | null = null

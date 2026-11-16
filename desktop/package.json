@@ -1,5 +1,5 @@
 {
-  "name": "cowagent-desktop",
+  "name": "navora-desktop",
   "version": "2.2.2",
   "description": "Navora Desktop Client - AI Agent on your desktop",
   "main": "dist/main/index.js",
@@ -46,7 +46,7 @@
     "vite": "^6.0.3"
   },
   "build": {
-    "appId": "com.cowagent.desktop",
+    "appId": "com.navora.desktop",
     "productName": "Navora",
     "directories": {
       "output": "release"
@@ -110,8 +110,9 @@
       "createStartMenuShortcut": true
     },
     "publish": {
-      "provider": "generic",
-      "url": "https://cowagent.ai/update/"
+      "provider": "github",
+      "owner": "jialexiao341-glitch",
+      "repo": "Navora"
     }
   },
   "overrides": {
