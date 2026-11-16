@@ -155,11 +155,29 @@ function petAmbientReaction(audioState = {}, tr = null) {
     }
     return { active: false, bubble: '', preferredNames: [] };
 }
+function petFormatReplyPreview(rawText, speakerName = '', maxLen = 96) {
+    const cleaned = String(rawText || '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/[*~]+/g, '')
+        .replace(/(^|\s)[#>-]+\s*/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!cleaned) return '';
+    const prefix = speakerName ? `[${speakerName}] ` : '';
+    const limit = Math.max(24, Number(maxLen) || 96);
+    const bodyMax = Math.max(12, limit - prefix.length);
+    const body = cleaned.length > bodyMax ? cleaned.slice(0, bodyMax - 1).trimEnd() + '…' : cleaned;
+    return `${prefix}${body}`;
+}
 if (typeof module !== 'undefined') {
     module.exports = {
         petNextAction, petBounds, petSafePlace, petSnapTarget, petTaskStatus, doroTaskTrack, petFrameIndex,
         sampleMoveCurve, petShouldFlip, petChooseMoveDirection, petPlannedMoveDistance,
-        petClickLine, petFocusReaction, petAmbientReaction
+        petClickLine, petFocusReaction, petAmbientReaction, petFormatReplyPreview
     };
 }
 if (typeof document !== 'undefined') (async () => {
@@ -199,10 +217,11 @@ if (typeof document !== 'undefined') (async () => {
     config.sound = config.sound !== false;
 
     let manifest, pools, current = 0, generation = 0, drag = null, velocity = null, last = 0;
-    let activeMove = null, gapTimer = null, lastActionGroup = 'idle', sleeping = false, working = false;
+    let activeMove = null, gapTimer = null, lastActionGroup = 'idle', sleeping = false, manualSleep = false, working = false;
     let focusState = { running: false, mode: 'work' }, audioState = { musicPlaying: false, soundKind: '' };
     let phase = 'thinking', typing = false, typingTimer = null, bubbleTimer = null, stickyBubble = false, pendingVisibilityBubble = false;
-    let hoverCloseTimer = null, clickTimer = null, lastTapAt = 0, sfxCtx = null;
+    let hoverCloseTimer = null, clickTimer = null, inactivityTimer = null, lastTapAt = 0, sfxCtx = null;
+    const INACTIVITY_SLEEP_MS = 90000;
 
     const save = () => { try { localStorage.setItem('navora_indesktop_pet_v1', JSON.stringify(config)); } catch (_) {} };
     const pick = list => list && list.length ? list[Math.floor(Math.random() * list.length)] : null;
@@ -241,10 +260,40 @@ if (typeof document !== 'undefined') (async () => {
             if (rect.width > 0 && rect.height > 0) list.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom });
         };
         addEl(document.getElementById('composer-card'));
+        const welcome = document.getElementById('welcome-screen');
+        if (welcome && !welcome.hidden && welcome.offsetParent !== null) addEl(welcome.querySelector('.grid'));
         const ambientPlayer = document.getElementById('ambient-player');
         if (ambientPlayer && !ambientPlayer.classList.contains('is-collapsed')) addEl(document.getElementById('ambient-panel'));
         document.querySelectorAll('.modal-backdrop:not(.hidden), #team-chat-modal:not(.hidden), [role="dialog"]:not([hidden]):not(#ambient-panel)').forEach(addEl);
         return list;
+    }
+
+    function setSleepState(nextSleeping, { manual = false } = {}) {
+        sleeping = Boolean(nextSleeping);
+        manualSleep = sleeping ? manual : false;
+        const sleepBtn = document.getElementById('pet-sleep');
+        if (sleepBtn) sleepBtn.textContent = sleeping ? tr('pet_wake', '叫醒') : tr('pet_sleep', '睡觉');
+        if (sleeping) bubble.hidden = true;
+    }
+
+    function wakeUp({ forceManual = false } = {}) {
+        scheduleInactivitySleep();
+        if (!sleeping) return false;
+        if (manualSleep && !forceManual) return false;
+        setSleepState(false);
+        next();
+        return true;
+    }
+
+    function scheduleInactivitySleep() {
+        clearTimeout(inactivityTimer);
+        if (!config.enabled || !config.roam || config.locked) return;
+        inactivityTimer = setTimeout(() => {
+            if (!config.enabled || !config.roam || config.locked || sleeping || working || focusState.running || drag || typing) return;
+            if ((quickChat && !quickChat.hidden) || (sidePanel && !sidePanel.hidden)) return scheduleInactivitySleep();
+            setSleepState(true, { manual: false });
+            next();
+        }, INACTIVITY_SLEEP_MS);
     }
 
     function getDockSurface() {
@@ -589,6 +638,7 @@ if (typeof document !== 'undefined') (async () => {
         }, 260);
     }
     root.addEventListener('mouseenter', () => {
+        wakeUp();
         showSidePanel(true);
         if (!working && !focusState.running && !sleeping && bubble.hidden && (!quickChat || quickChat.hidden)) {
             showBubble(tr('pet_bubble_default', '我在这里陪你，点这里查看对话。'), { sticky: false, duration: 3200 });
@@ -614,6 +664,7 @@ if (typeof document !== 'undefined') (async () => {
         const willOpen = open !== undefined ? open : quickChat.hidden;
         quickChat.hidden = !willOpen;
         if (willOpen) {
+            wakeUp({ forceManual: true });
             activeMove = null;
             positionFloatingOverlays(config.x ?? 0, config.y ?? 0);
             quickInput.focus();
@@ -660,8 +711,8 @@ if (typeof document !== 'undefined') (async () => {
 
     // Double click playful interaction
     function triggerInteraction() {
-        sleeping = false;
-        document.getElementById('pet-sleep').textContent = tr('pet_sleep', '睡觉');
+        setSleepState(false);
+        scheduleInactivitySleep();
         playPetSfx('click');
         play(pick(paths('click')));
         if (!working && !focusState.running) showBubble(petClickLine(config.character, Math.random, tr), { duration: 4000 });
@@ -692,14 +743,21 @@ if (typeof document !== 'undefined') (async () => {
         save();
     };
     if (soundEl) soundEl.onchange = e => { config.sound = e.target.checked; save(); };
-    document.getElementById('pet-sleep').onclick = e => {
-        sleeping = !sleeping;
-        e.target.textContent = sleeping ? tr('pet_wake', '叫醒') : tr('pet_sleep', '睡觉');
-        if (sleeping) bubble.hidden = true;
+    document.getElementById('pet-sleep').onclick = () => {
+        setSleepState(!sleeping, { manual: !sleeping });
+        if (!sleeping) scheduleInactivitySleep();
         next();
+    };
+    const resetPosBtn = document.getElementById('pet-reset-pos');
+    if (resetPosBtn) resetPosBtn.onclick = () => {
+        config.x = null;
+        config.y = null;
+        apply({ avoid: true });
+        scheduleInactivitySleep();
     };
     document.getElementById('pet-hide').onclick = () => {
         config.enabled = false;
+        clearTimeout(inactivityTimer);
         showSidePanel(false);
         toggleQuickChat(false);
         generation++; activeMove = null; videos.forEach(v => v.pause());
@@ -710,11 +768,22 @@ if (typeof document !== 'undefined') (async () => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleQuickChat(); }
         if (e.key === 'Escape') { toggleQuickChat(false); showSidePanel(false); }
     };
-    document.getElementById('pet-animation').onchange = e => { sleeping = false; play(manifest?.find(a => a.path === e.target.value)); };
+    window.addEventListener('keydown', e => {
+        if (!e.altKey || e.ctrlKey || e.metaKey || e.key.toLowerCase() !== 'p') return;
+        e.preventDefault();
+        if (!config.enabled) {
+            config.enabled = true;
+            apply({ avoid: true });
+            next();
+        }
+        toggleQuickChat();
+    });
+    document.getElementById('pet-animation').onchange = e => { setSleepState(false); scheduleInactivitySleep(); play(manifest?.find(a => a.path === e.target.value)); };
 
     root.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         clearTimeout(gapTimer);
+        scheduleInactivitySleep();
         velocity = null; activeMove = null;
         drag = { x: e.clientX, y: e.clientY, left: config.x, top: config.y, lastX: e.clientX, lastY: e.clientY, time: performance.now(), vx: 0, vy: 0, moved: false };
         updateAirborneState();
@@ -851,12 +920,13 @@ if (typeof document !== 'undefined') (async () => {
     document.addEventListener('focusout', e => { if (e.target && e.target.id === 'chat-input') setTyping(false); });
 
     document.addEventListener('visibilitychange', () => {
-        clearTimeout(gapTimer); generation++; videos.forEach(v => v.pause()); activeMove = null; velocity = null;
+        clearTimeout(gapTimer); clearTimeout(inactivityTimer); generation++; videos.forEach(v => v.pause()); activeMove = null; velocity = null;
         if (!document.hidden) {
             if (pendingVisibilityBubble) {
                 pendingVisibilityBubble = false;
                 showBubble(bubble.textContent, { sticky: false, duration: 7000 });
             }
+            scheduleInactivitySleep();
             next();
         }
     });
@@ -867,15 +937,17 @@ if (typeof document !== 'undefined') (async () => {
         videoBlobCache.clear();
     });
 
-    function updateTask(type, tool = '', speakerName = '') {
+    function updateTask(type, tool = '', speakerName = '', previewText = '') {
         const task = petTaskStatus(type, tool, { tr, speakerName });
         const previous = phase, wasWorking = working;
         working = !['done', 'error', 'cancelled'].includes(type);
         phase = task.phase;
+        wakeUp();
         if (type === 'done') {
             playPetSfx('done');
+            const preview = petFormatReplyPreview(previewText, speakerName);
             if (document.hidden) pendingVisibilityBubble = true;
-            showBubble(task.text, { sticky: false, duration: 9000 });
+            showBubble(preview ? `✓ ${preview}` : task.text, { sticky: false, duration: preview ? 10500 : 9000 });
         } else if (type === 'error') {
             if (document.hidden) pendingVisibilityBubble = true;
             showBubble(task.text, { sticky: false, duration: 9000 });
@@ -887,7 +959,7 @@ if (typeof document !== 'undefined') (async () => {
         if (!sleeping && (!wasWorking || previous !== phase || type === 'done' || type === 'error')) play(workClip(), working);
     }
     document.addEventListener('navora:companion-phase', e => updateTask(e.detail?.type, e.detail?.tool, e.detail?.speakerName));
-    document.addEventListener('navora:reply-complete', e => updateTask('done', '', e.detail?.speakerName));
+    document.addEventListener('navora:reply-complete', e => updateTask('done', '', e.detail?.speakerName, e.detail?.previewText));
 
     document.addEventListener('navora:focus-state', e => {
         const detail = e.detail || {};
@@ -974,10 +1046,11 @@ if (typeof document !== 'undefined') (async () => {
             const select = document.getElementById('pet-animation');
             select.replaceChildren(new Option(tr('pet_animation_pick', '选择动作'), ''));
             for (const clip of manifest) select.append(new Option(clip.name, clip.path));
-            status.textContent = tr('pet_hint', '单击快问 · 双击互动 · 悬停设置 · 拖动甩抛');
+            status.textContent = tr('pet_hint', '单击快问(Alt+P) · 双击互动 · 悬停设置 · 拖动甩抛');
             apply({ avoid: true });
             showBubble(petClickLine(character, Math.random, tr), { duration: 3800 });
             schedulePreload(manifest);
+            scheduleInactivitySleep();
             next();
         } catch (_) {
             characterSelect.value = previous;
