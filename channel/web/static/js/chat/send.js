@@ -780,9 +780,13 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
                 }
                 settlePendingTools();
                 resetSendBtnSendMode();
-                if (!cancelled && isActive()) document.dispatchEvent(new CustomEvent('navora:reply-complete', {detail: {speakerName: activeCompanionSpeaker()}}));
 
                 const finalTextRaw = item.content || accumulatedText;
+                if (!cancelled && isActive()) {
+                    document.dispatchEvent(new CustomEvent('navora:reply-complete', {
+                        detail: {speakerName: activeCompanionSpeaker(), previewText: finalTextRaw}
+                    }));
+                }
                 // A stopped reply is already marked by its status line.
                 const finalText = cancelled && isCancelMarker(finalTextRaw)
                     ? ''
