@@ -97,7 +97,7 @@ test('inward direction and move distance clamp prevent walking into screen walls
 
 test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and hover/quick-chat markup',()=>{
  const {
-  petSafePlace,petSnapTarget,petTaskStatus,petFocusReaction,petAmbientReaction,petClickLine
+  petSafePlace,petSnapTarget,petTaskStatus,petFocusReaction,petAmbientReaction,petClickLine,petFormatReplyPreview
  }=require('../channel/web/static/js/core/indesktop-pet.js');
 
  const composer={left:200,top:620,right:900,bottom:740};
@@ -116,6 +116,8 @@ test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and 
  assert.equal(petFocusReaction({running:true,mode:'work'}).clipGroup,'focus');
  assert.equal(petFocusReaction({running:false,mode:'work',completed:true}).clipGroup,'celebrate');
  assert.equal(petAmbientReaction({musicPlaying:true,soundKind:''}).active,true);
+ assert.equal(petFormatReplyPreview('## 标题\n**结果**：已完成\n```js\nconst a = 1;\n```','Planner',40),'[Planner] 标题 结果：已完成');
+ assert.ok(petFormatReplyPreview('这是一段特别长的回答内容，需要在桌面宠物气泡里面进行合理截断以免挡住界面展示。','',28).endsWith('…'));
 
  for(const id of ['shenshen','doro']) {
   assert.ok(petClickLine(id,()=>0).length>0);
@@ -124,7 +126,7 @@ test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and 
  const html=fs.readFileSync(path.join(__dirname,'../channel/web/templates/layout/ambient-player.html'),'utf8');
  assert.ok(!html.includes('ambient-pet-tab'));
  assert.ok(!html.includes('ambient-pet-view'));
- for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','ambient-pet-restore','pet-passthrough','pet-sound','shenshen','doro']) {
+ for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','pet-reset-pos','ambient-pet-restore','pet-passthrough','pet-sound','shenshen','doro']) {
   assert.ok(html.includes(id),id);
  }
  for(const removed of ['xiaoya','lanlan','paopao','momo']) {
