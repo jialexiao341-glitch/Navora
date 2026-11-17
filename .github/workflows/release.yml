@@ -302,6 +302,8 @@ jobs:
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
           TAG: ${{ needs.prepare.outputs.tag }}
           VER: ${{ needs.prepare.outputs.version }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
@@ -311,8 +313,8 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then
             flags+=(--prerelease)
           fi
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/* --clobber
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber --repo "$REPO"
           else
-            gh release create "$TAG" dist/* --title "Navora v${VER}" --generate-notes "${flags[@]}"
+            gh release create "$TAG" dist/* --repo "$REPO" --target "$TARGET_SHA" --title "Navora v${VER}" --generate-notes "${flags[@]}"
           fi
