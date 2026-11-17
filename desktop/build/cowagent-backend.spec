@@ -184,7 +184,8 @@ excludes = [
     'lark_oapi',          # Feishu SDK — fetched on demand, NOT bundled (see above)
     'tests',
     'pip',
-    'wheel',
+    # Do not exclude 'wheel': setuptools >= 84 vendors wheel in setuptools._vendor.wheel,
+    # and PyInstaller's setuptools hook crashes with ValueError if 'wheel' is excluded.
     'pytest',
     # NOTE: playwright is now BUNDLED (pure-Python package + Node driver, ~10-15MB)
     # so the browser tool works out of the box on desktop. The heavy Chromium
@@ -209,6 +210,18 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Never bundle local runtime config/env files (e.g. plugins/*/config.json or .env)
+# from a developer's working tree into the distributable backend.
+def _is_local_sensitive_data(entry):
+    dest_name = entry[0].replace('\\', '/')
+    base_name = os.path.basename(dest_name)
+    if '/playwright/' in f'/{dest_name}' or '/certifi/' in f'/{dest_name}':
+        return False
+    return base_name in ('config.json', '.env') or base_name.startswith('.env.')
+
+
+a.datas[:] = [entry for entry in a.datas if not _is_local_sensitive_data(entry)]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
