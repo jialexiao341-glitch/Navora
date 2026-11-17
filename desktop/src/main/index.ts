@@ -6,7 +6,7 @@ import http from 'http'
 import { PythonBackend, BackendError } from './python-manager'
 import { buildAppMenu } from './menu'
 import { createTray, destroyTray, getTray } from './tray'
-import { initUpdater, checkForUpdates, startDownload, quitAndInstall, setUpdateLanguage, setUpdateFeedQuery, getLastUpdateStatus } from './updater'
+import { initUpdater, checkForUpdates, startDownload, quitAndInstall, setUpdateLanguage, setUpdateFeedQuery, getLastUpdateStatus, getUpdaterLogPath } from './updater'
 import { setupThemeIPC, loadAppConfig } from './themes'
 import { setupHttpRelayIPC } from './http-relay'
 import {
@@ -311,6 +311,20 @@ function saveWindowState() {
   }
 }
 
+const windowThemeFile = () => path.join(app.getPath('userData'), 'window-theme.json')
+
+function resolveStartupBackgroundColor(): string {
+  try {
+    const raw = fs.readFileSync(windowThemeFile(), 'utf-8')
+    const data = JSON.parse(raw) as { theme?: string }
+    if (data?.theme === 'dark') return '#14161a'
+    if (data?.theme === 'light') return '#f1f3f6'
+  } catch {
+    /* ignore */
+  }
+  return nativeTheme.shouldUseDarkColors ? '#14161a' : '#f1f3f6'
+}
+
 function isZhLocale(): boolean {
   try {
     return /^zh/i.test(app.getLocale() || '')
@@ -464,7 +478,7 @@ function createWindow() {
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     trafficLightPosition: isMac ? { x: 14, y: 16 } : undefined,
     frame: isMac ? undefined : false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#14161a' : '#f1f3f6',
+    backgroundColor: resolveStartupBackgroundColor(),
     icon: getIconPath(),
     title: app.name,
     show: false,
@@ -884,6 +898,29 @@ function setupIPC() {
   })
   ipcMain.handle('update-feed-query', (_event, params: unknown) => {
     setUpdateFeedQuery(params)
+  })
+  ipcMain.handle('open-updater-log', async () => {
+    const logPath = getUpdaterLogPath()
+    if (logPath && fs.existsSync(logPath)) {
+      shell.showItemInFolder(logPath)
+      return logPath
+    }
+    const dir = path.join(app.getPath('userData'), 'logs')
+    fs.mkdirSync(dir, { recursive: true })
+    await shell.openPath(dir)
+    return dir
+  })
+  ipcMain.handle('set-window-theme', (_event, theme: string) => {
+    const valid = theme === 'dark' || theme === 'light' || theme === 'system' ? theme : 'system'
+    try {
+      fs.writeFileSync(windowThemeFile(), JSON.stringify({ theme: valid }))
+    } catch {
+      /* ignore */
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const dark = valid === 'dark' || (valid === 'system' && nativeTheme.shouldUseDarkColors)
+      mainWindow.setBackgroundColor(dark ? '#14161a' : '#f1f3f6')
+    }
   })
   ipcMain.handle('update-install', () => {
     // Let the window actually close so the app can fully quit — otherwise the

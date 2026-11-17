@@ -1,15 +1,13 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 
 // '@product' resolves to the built-in default (empty). An alternate build
 // can set COW_PRODUCT_DIR to point at another module instead.
 const productDir =
   process.env.COW_PRODUCT_DIR || path.resolve(__dirname, 'src/renderer/src/product/default')
 
-// When '@product' points outside this project, its files can't resolve shared
-// deps from their own tree. Alias the shared runtime deps to this project's
-// node_modules so an out-of-tree product module imports the same instances.
 const nodeModules = path.resolve(__dirname, 'node_modules')
 const sharedDepAliases = process.env.COW_PRODUCT_DIR
   ? {
@@ -21,11 +19,74 @@ const sharedDepAliases = process.env.COW_PRODUCT_DIR
     }
   : {}
 
+const webStaticDir = path.resolve(__dirname, '../channel/web/static')
+const bootAssets = [
+  { src: 'logo.jpg', dest: 'logo.jpg' },
+  { src: 'vendor/fonts/inter', dest: 'vendor/fonts/inter' },
+  { src: 'vendor/fontawesome', dest: 'vendor/fontawesome' },
+]
+
+function copyEntry(src: string, dest: string): void {
+  if (!fs.existsSync(src)) return
+  const stat = fs.statSync(src)
+  if (stat.isDirectory()) {
+    fs.mkdirSync(dest, { recursive: true })
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+      copyEntry(path.join(src, entry.name), path.join(dest, entry.name))
+    }
+  } else {
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
+    fs.copyFileSync(src, dest)
+  }
+}
+
+const MIME: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+  '.svg': 'image/svg+xml',
+}
+
+/**
+ * Copy/serve only the minimal static assets needed by the desktop boot shell
+ * (logo + Inter font + FontAwesome) instead of duplicating all 90+ MB of
+ * channel/web/static (pet videos, Doro frames, console scripts) into dist/renderer.
+ */
+function desktopBootAssetsPlugin(): Plugin {
+  const outDir = path.resolve(__dirname, 'dist/renderer')
+  return {
+    name: 'navora-desktop-boot-assets',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const cleanUrl = (req.url || '').split('?')[0].replace(/^\/+/, '')
+        const allowed = bootAssets.some((a) => cleanUrl === a.dest || cleanUrl.startsWith(`${a.dest}/`))
+        if (!allowed) return next()
+        const full = path.resolve(webStaticDir, cleanUrl)
+        if (!full.startsWith(webStaticDir + path.sep) || !fs.existsSync(full) || !fs.statSync(full).isFile()) {
+          return next()
+        }
+        const ext = path.extname(full).toLowerCase()
+        if (MIME[ext]) res.setHeader('Content-Type', MIME[ext])
+        fs.createReadStream(full).pipe(res)
+      })
+    },
+    writeBundle() {
+      for (const item of bootAssets) {
+        copyEntry(path.join(webStaticDir, item.src), path.join(outDir, item.dest))
+      }
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), desktopBootAssetsPlugin()],
   root: path.resolve(__dirname, 'src/renderer'),
   base: './',
-  publicDir: path.resolve(__dirname, '../channel/web/static'),
+  publicDir: false,
   build: {
     outDir: path.resolve(__dirname, 'dist/renderer'),
     emptyOutDir: true,

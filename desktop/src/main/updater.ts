@@ -133,6 +133,10 @@ export function setUpdateFeedQuery(params: unknown): void {
 // in-app log view / terminal.
 let logFile: string | null = null
 
+export function getUpdaterLogPath(): string | null {
+  return logFile
+}
+
 function initLogFile() {
   try {
     const dir = path.join(app.getPath('userData'), 'logs')

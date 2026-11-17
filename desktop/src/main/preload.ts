@@ -118,6 +118,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdate: (lang?: string) => ipcRenderer.invoke('update-check', lang),
   downloadUpdate: (lang?: string) => ipcRenderer.invoke('update-download', lang),
   installUpdate: () => ipcRenderer.invoke('update-install'),
+  openUpdaterLog: () => ipcRenderer.invoke('open-updater-log') as Promise<string>,
+  setWindowTheme: (theme: 'light' | 'dark' | 'system') => ipcRenderer.invoke('set-window-theme', theme) as Promise<void>,
   // Extra query parameters for the update feed URL; pass {} to clear.
   setUpdateFeedQuery: (params: Record<string, string>) => ipcRenderer.invoke('update-feed-query', params),
   onUpdateStatus: (callback: (status: unknown) => void) => {

@@ -12,14 +12,16 @@
     // Resolve theme before first paint to avoid flash-of-wrong-theme.
     (function () {
       try {
-        var pref = localStorage.getItem('cow_theme') || 'dark';
-        var resolved = pref === 'system'
+        var pref = localStorage.getItem('cow_theme');
+        var resolved = !pref || pref === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : pref;
         if (resolved === 'dark') document.documentElement.classList.add('dark');
         else document.documentElement.classList.remove('dark');
       } catch (e) {
-        document.documentElement.classList.add('dark');
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark');
+        }
       }
     })();
     </script>
