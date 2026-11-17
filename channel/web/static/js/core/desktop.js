@@ -63,6 +63,49 @@
         });
     }
 
+    // Launch-at-login toggle in System Config Card (Windows / macOS only).
+    (function initLaunchAtLogin() {
+        const supports = typeof api.setLoginItemEnabled === 'function'
+            && (api.platform === 'win32' || api.platform === 'darwin');
+        if (!supports) return;
+        const wrap = document.getElementById('cfg-launch-at-login-wrap');
+        const input = document.getElementById('cfg-launch-at-login');
+        const errEl = document.getElementById('cfg-launch-at-login-error');
+        if (!wrap || !input) return;
+
+        wrap.classList.remove('hidden');
+        if (typeof api.getLoginItemEnabled === 'function') {
+            api.getLoginItemEnabled().then(function(enabled) {
+                input.checked = !!enabled;
+            }).catch(function() {});
+        }
+
+        input.addEventListener('change', function() {
+            const next = !!input.checked;
+            if (errEl) {
+                errEl.textContent = '';
+                errEl.classList.add('hidden');
+            }
+            Promise.resolve(api.setLoginItemEnabled(next)).then(function(res) {
+                if (!res) return;
+                input.checked = !!res.enabled;
+                if (!res.ok && errEl) {
+                    const prefix = typeof t === 'function' ? t('config_launch_at_login_error') : 'Failed to change launch at login';
+                    const refused = typeof t === 'function' ? t('config_launch_at_login_refused') : 'The system did not accept this change';
+                    errEl.textContent = res.error ? (prefix + ': ' + res.error) : refused;
+                    errEl.classList.remove('hidden');
+                }
+            }).catch(function(err) {
+                input.checked = !next;
+                if (errEl) {
+                    const prefix = typeof t === 'function' ? t('config_launch_at_login_error') : 'Failed to change launch at login';
+                    errEl.textContent = prefix + ': ' + (err && err.message ? err.message : String(err));
+                    errEl.classList.remove('hidden');
+                }
+            });
+        });
+    })();
+
     // Desktop auto-updater UI bridge.
     const updateState = {
         status: null,

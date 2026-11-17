@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, '..');
 test('web shell includes desktop pre-paint class hook, window controls, and desktop.js', () => {
     const chatHtml = fs.readFileSync(path.join(ROOT, 'channel/web/chat.html'), 'utf8');
     const headerHtml = fs.readFileSync(path.join(ROOT, 'channel/web/templates/layout/header.html'), 'utf8');
+    const configHtml = fs.readFileSync(path.join(ROOT, 'channel/web/templates/views/config.html'), 'utf8');
     const baseCss = fs.readFileSync(path.join(ROOT, 'channel/web/static/css/base.css'), 'utf8');
 
     assert.match(chatHtml, /window\.electronAPI[\s\S]*electron-desktop/);
@@ -17,6 +18,8 @@ test('web shell includes desktop pre-paint class hook, window controls, and desk
     assert.match(headerHtml, /windowMinimize\(\)/);
     assert.match(headerHtml, /windowMaximize\(\)/);
     assert.match(headerHtml, /windowClose\(\)/);
+    assert.match(configHtml, /id="cfg-launch-at-login-wrap"/);
+    assert.match(configHtml, /id="cfg-launch-at-login"/);
     assert.match(baseCss, /\.desktop-window-controls\s*\{[^}]*display:\s*none/);
     assert.match(baseCss, /html\.electron-win\s+\.desktop-window-controls\s*\{[^}]*display:\s*flex/);
 });
@@ -46,8 +49,18 @@ test('desktop.js wires window state, version, menu actions, and update status wh
     const renderCalls = [];
     const handlers = {};
     const maxIcon = { innerHTML: '' };
+    const launchWrap = makeEl('cfg-launch-at-login-wrap');
+    launchWrap.classList.add('hidden');
+    const launchInput = makeEl('cfg-launch-at-login');
+    launchInput.checked = false;
+    const launchErr = makeEl('cfg-launch-at-login-error');
+    launchErr.classList.add('hidden');
     const bodyChildren = [];
-    const createdById = {};
+    const createdById = {
+        'cfg-launch-at-login-wrap': launchWrap,
+        'cfg-launch-at-login': launchInput,
+        'cfg-launch-at-login-error': launchErr,
+    };
 
     function makeEl(id) {
         return {
@@ -81,6 +94,8 @@ test('desktop.js wires window state, version, menu actions, and update status wh
                 checkForUpdate: async () => {},
                 downloadUpdate: async () => {},
                 installUpdate: async () => {},
+                getLoginItemEnabled: async () => true,
+                setLoginItemEnabled: async (enabled) => ({ ok: false, enabled: false, error: 'policy denied' }),
             },
         },
         document: {
@@ -154,4 +169,14 @@ test('desktop.js wires window state, version, menu actions, and update status wh
     assert.equal(createdById['desktop-update-banner'].classList.contains('hidden'), false);
     assert.equal(renderCalls[renderCalls.length - 1].state, 'failed');
     assert.equal(renderCalls[renderCalls.length - 1].label, 'tr:update_no_releases');
+
+    // Launch-at-login should be visible, reflect initial OS state, and show refusal error on change.
+    assert.equal(launchWrap.classList.contains('hidden'), false);
+    assert.equal(launchInput.checked, true);
+    launchInput.checked = true;
+    launchInput.on_change();
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(launchInput.checked, false);
+    assert.equal(launchErr.classList.contains('hidden'), false);
+    assert.match(launchErr.textContent, /policy denied/);
 });

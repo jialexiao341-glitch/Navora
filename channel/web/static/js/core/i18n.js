@@ -292,6 +292,10 @@ const I18N = {
         config_task_notify: '任务通知', config_task_notify_hint: '窗口在后台且任务完成或失败时发送浏览器通知，点击可跳转会话',
         config_task_notify_sound: '通知声音', config_task_notify_sound_hint: '通知开启时可单独关闭提示音',
         config_task_notify_blocked: '系统通知已被浏览器屏蔽，请点击地址栏左侧图标 → 通知 → 允许后刷新页面',
+        config_launch_at_login: '开机自启',
+        config_launch_at_login_hint: '登录系统后自动在后台启动应用',
+        config_launch_at_login_error: '设置开机自启失败',
+        config_launch_at_login_refused: '系统未接受该设置，可能被系统或企业策略限制',
         notify_task_done: '任务完成',
         notify_task_error: '任务失败',
         config_model_advanced: '高级配置',
@@ -1133,6 +1137,10 @@ const I18N = {
         config_task_notify: '任務通知', config_task_notify_hint: '視窗在背景且任務完成或失敗時發送瀏覽器通知，點擊可跳轉會話',
         config_task_notify_sound: '通知聲音', config_task_notify_sound_hint: '通知開啟時可單獨關閉提示音',
         config_task_notify_blocked: '系統通知已被瀏覽器封鎖，請點擊網址列左側圖示 → 通知 → 允許後重新整理頁面',
+        config_launch_at_login: '開機自啟',
+        config_launch_at_login_hint: '登入系統後自動在背景啟動應用',
+        config_launch_at_login_error: '設定開機自啟失敗',
+        config_launch_at_login_refused: '系統未接受此設定，可能受系統或企業原則限制',
         notify_task_done: '任務完成',
         notify_task_error: '任務失敗',
         config_model_advanced: '高階設定',
@@ -1969,6 +1977,10 @@ const I18N = {
         config_task_notify: 'Task Notifications', config_task_notify_hint: 'Show a browser notification when a task finishes or fails while the window is in the background; click to open the session',
         config_task_notify_sound: 'Notification Sound', config_task_notify_sound_hint: 'Turn off the alert sound while keeping notifications',
         config_task_notify_blocked: 'Notifications are blocked by the browser. Click the icon on the left of the address bar → Notifications → Allow, then reload.',
+        config_launch_at_login: 'Launch at Login',
+        config_launch_at_login_hint: 'Start the app in the background when you sign in',
+        config_launch_at_login_error: 'Failed to change launch at login',
+        config_launch_at_login_refused: 'The system did not accept this change; it may be blocked by OS or enterprise policy',
         notify_task_done: 'Task finished',
         notify_task_error: 'Task failed',
         config_model_advanced: 'Advanced',
@@ -2596,11 +2608,13 @@ function applyI18n() {
     });
     
     _syncLangControls();
-    // Point the docs link to the locale-specific documentation site.
+    // Point the docs link to the locale-specific Navora documentation.
     const docsLink = document.getElementById('docs-link');
-    if (docsLink) docsLink.href = currentLang === 'zh' ? 'https://docs.cowagent.ai/zh' : 'https://docs.cowagent.ai';
+    if (docsLink) docsLink.href = currentLang === 'zh'
+        ? 'https://github.com/jialexiao341-glitch/Navora/blob/master/docs/zh/README.md'
+        : 'https://github.com/jialexiao341-glitch/Navora#readme';
     const websiteLink = document.getElementById('website-link');
-    if (websiteLink) websiteLink.href = currentLang === 'zh' ? 'https://cowagent.cn' : 'https://cowagent.ai';
+    if (websiteLink) websiteLink.href = 'https://github.com/jialexiao341-glitch/Navora/releases';
     // Workspace panel content is rendered by JS, not data-i18n attributes.
     if (typeof relocalizeWorkspacePanel === 'function') relocalizeWorkspacePanel();
 }
