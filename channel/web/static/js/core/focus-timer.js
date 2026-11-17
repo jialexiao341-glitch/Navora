@@ -5,7 +5,20 @@ function normalizeFocusMinutes(value) {
     const n = Number(value);
     return Number.isInteger(n) && n >= 1 && n <= 180 ? n : null;
 }
-if (typeof module !== 'undefined' && module.exports) module.exports = { focusRemaining, normalizeFocusMinutes };
+function notifyFocusCompletion(title, message, env = {}) {
+    const api = env.electronAPI;
+    if (api && typeof api.notify === 'function') {
+        Promise.resolve(api.notify({ title, body: message, force: true })).catch(() => {});
+        return 'electron';
+    }
+    const Notif = env.Notification;
+    if (typeof Notif !== 'undefined' && Notif.permission === 'granted' && env.hidden) {
+        new Notif(title, { body: message });
+        return 'browser';
+    }
+    return 'none';
+}
+if (typeof module !== 'undefined' && module.exports) module.exports = { focusRemaining, normalizeFocusMinutes, notifyFocusCompletion };
 if (typeof document !== 'undefined') (() => {
     const el = id => document.getElementById(id);
     if (!el('ambient-focus-tab')) return;
@@ -44,7 +57,11 @@ if (typeof document !== 'undefined') (() => {
             const notice = el('focus-notice'); notice.textContent = message; notice.hidden = false;
             clearTimeout(tick.noticeTimer); tick.noticeTimer = setTimeout(() => { notice.hidden = true; }, 10000);
             if (typeof playNotifyBeep === 'function') playNotifyBeep();
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) new Notification(tr('tab'), {body: message});
+            notifyFocusCompletion(tr('tab'), message, {
+                electronAPI: typeof window !== 'undefined' ? window.electronAPI : null,
+                Notification: typeof Notification !== 'undefined' ? Notification : undefined,
+                hidden: document.hidden,
+            });
             save();
             emitFocus(true);
         }

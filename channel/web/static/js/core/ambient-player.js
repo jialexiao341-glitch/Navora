@@ -1,22 +1,54 @@
 function createAmbientQueue(urls) {
     const items = [];
     let index = -1;
+    const revokeItem = item => {
+        if (item && !item.builtin && item.url) {
+            urls.revokeObjectURL(item.url);
+            if (item.localPath) item.url = '';
+        }
+    };
     return {
         items, current: () => items[index] || null, index: () => index,
         addBuiltins(tracks) { items.push(...tracks.map(track => ({...track, builtin: true}))); if (index < 0 && items.length) index = 0; },
-        add(files) { for (const file of files) items.push({ name: file.name, url: urls.createObjectURL(file) }); if (index < 0 && items.length) index = 0; },
+        add(files, getPath) {
+            for (const file of files) {
+                const localPath = typeof getPath === 'function' ? (getPath(file) || '') : (file.path || '');
+                items.push({ name: file.name, url: urls.createObjectURL(file), localPath });
+            }
+            if (index < 0 && items.length) index = 0;
+        },
+        addLocalEntries(entries) {
+            for (const entry of entries || []) {
+                if (!entry || !entry.path) continue;
+                if (items.some(i => i.localPath === entry.path)) continue;
+                items.push({ name: entry.name || entry.path.split(/[\\/]/).pop() || 'Audio', url: '', localPath: entry.path });
+            }
+            if (index < 0 && items.length) index = 0;
+        },
         select(i) { if (i >= 0 && i < items.length) index = i; return items[index] || null; },
         next(loop = false) { if (!items.length || (index === items.length - 1 && !loop)) return null; index = (index + 1) % items.length; return items[index]; },
         previous(loop = false) { if (!items.length || (index === 0 && !loop)) return null; index = (index - 1 + items.length) % items.length; return items[index]; },
-        remove(i) { if (i < 0 || i >= items.length) return; if (!items[i].builtin) urls.revokeObjectURL(items[i].url); items.splice(i, 1); if (i < index) index--; else if (index >= items.length) index = items.length - 1; },
-        clear() { for (const item of items) if (!item.builtin) urls.revokeObjectURL(item.url); items.length = 0; index = -1; }
+        remove(i) { if (i < 0 || i >= items.length) return; revokeItem(items[i]); items.splice(i, 1); if (i < index) index--; else if (index >= items.length) index = items.length - 1; },
+        clear() { for (const item of items) revokeItem(item); items.length = 0; index = -1; }
     };
+}
+function serializePersistedTracks(items) {
+    return (items || []).filter(i => i && !i.builtin && i.localPath).map(i => ({ name: i.name, path: i.localPath }));
+}
+function parsePersistedTracks(raw) {
+    try {
+        const list = JSON.parse(raw || '[]');
+        if (!Array.isArray(list)) return [];
+        return list.filter(i => i && typeof i.path === 'string' && i.path.trim()).map(i => ({ name: typeof i.name === 'string' ? i.name : '', path: i.path }));
+    } catch (_) {
+        return [];
+    }
 }
 function clampAmbientPosition(x, y, width, height, size) {
     return {x: Math.max(8, Math.min(x, Math.max(8, width - size - 8))), y: Math.max(8, Math.min(y, Math.max(8, height - size - 8)))};
 }
 function ambientLoopEnabled(settings) { return settings.loopPreferenceVersion === 1 ? settings.loop !== false : true; }
-if (typeof module !== 'undefined' && module.exports) module.exports = { createAmbientQueue, clampAmbientPosition, ambientLoopEnabled };
+if (typeof module !== 'undefined' && module.exports) module.exports = { createAmbientQueue, clampAmbientPosition, ambientLoopEnabled, serializePersistedTracks, parsePersistedTracks };
 
 if (typeof document !== 'undefined') {
     (() => {
@@ -25,13 +57,22 @@ if (typeof document !== 'undefined') {
         const $ = id => document.getElementById('ambient-' + id);
         const audio = $('audio'), queue = createAmbientQueue(URL);
         const text = key => t('ambient_' + key);
+        const playlistKey = 'navora_ambient_playlist_v1';
+        const electronApi = typeof window !== 'undefined' ? window.electronAPI : null;
+        const savePlaylist = () => {
+            if (!electronApi) return;
+            try { localStorage.setItem(playlistKey, JSON.stringify(serializePersistedTracks(queue.items))); } catch (_) {}
+        };
         queue.addBuiltins(['still-water', 'night-sky', 'soft-morning'].map((id, i) => ({ name: text('track_' + (i + 1)), duration: 24, url: '/assets/audio/ambient/' + id + '.wav' })));
+        if (electronApi && typeof electronApi.readAudioFile === 'function') {
+            try { queue.addLocalEntries(parsePersistedTracks(localStorage.getItem(playlistKey))); } catch (_) {}
+        }
         let settings = {};
         try { settings = JSON.parse(localStorage.getItem('navora_ambient') || '{}') || {}; } catch (_) {}
         audio.volume = typeof settings.volume === 'number' && settings.volume >= 0 && settings.volume <= 1 ? settings.volume : .6;
         $('volume').value = audio.volume;
         $('loop').checked = ambientLoopEnabled(settings);
-        let position = null;
+        let position = null, loadToken = 0;
         const save = () => { try { localStorage.setItem('navora_ambient', JSON.stringify({volume: audio.volume, loop: $('loop').checked, loopPreferenceVersion: 1, open: !root.classList.contains('is-collapsed'), position: position})); } catch (_) {} };
         const fmt = n => Number.isFinite(n) && n >= 0 ? `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}` : '0:00';
         const status = value => { $('status').textContent = value; };
@@ -47,27 +88,71 @@ if (typeof document !== 'undefined') {
             queue.items.forEach((item, i) => {
                 const li = document.createElement('li');
                 const select = document.createElement('button'); select.type = 'button'; select.className = 'ambient-track' + (i === queue.index() ? ' active' : ''); select.textContent = item.name; select.title = item.name;
-                select.addEventListener('click', () => { queue.select(i); load(true); });
+                select.addEventListener('click', () => { queue.select(i); void load(true); });
                 const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'ambient-remove'; remove.textContent = '×'; remove.setAttribute('aria-label', text('remove') + ': ' + item.name);
-                remove.addEventListener('click', () => { const currentRemoved = i === queue.index(); queue.remove(i); if (currentRemoved) load(false); else render(); });
+                remove.addEventListener('click', () => { const currentRemoved = i === queue.index(); queue.remove(i); savePlaylist(); if (currentRemoved) void load(false); else render(); });
                 li.append(select, remove); $('list').appendChild(li);
             });
         }
-        function load(autoplay) {
+        async function ensureTrackUrl(item) {
+            if (!item) return '';
+            if (item.url) return item.url;
+            if (item.localPath && electronApi && typeof electronApi.readAudioFile === 'function') {
+                const res = await electronApi.readAudioFile(item.localPath);
+                if (!res || !res.ok || !res.data) return '';
+                const blob = new Blob([res.data], { type: res.mime || 'audio/mpeg' });
+                item.url = URL.createObjectURL(blob);
+                return item.url;
+            }
+            return '';
+        }
+        async function load(autoplay) {
+            const token = ++loadToken;
             audio.pause(); const item = queue.current();
-            if (item) audio.src = item.url; else { audio.removeAttribute('src'); audio.load(); }
             $('progress').value = 0; $('time').textContent = '0:00 / 0:00'; status(''); render();
-            if (item && autoplay) play();
+            if (!item) { audio.removeAttribute('src'); audio.load(); return; }
+            let url = item.url;
+            if (!url) {
+                url = await ensureTrackUrl(item);
+                if (token !== loadToken) return;
+                if (!url) {
+                    audio.removeAttribute('src'); audio.load();
+                    status(text('track_missing'));
+                    render();
+                    return;
+                }
+            }
+            audio.src = url;
+            if (autoplay) play();
         }
         function play() { audio.play().catch(() => { status(text('error')); render(); }); }
-        function move(direction) { const item = direction > 0 ? queue.next($('loop').checked) : queue.previous($('loop').checked); if (item) load(true); }
+        function move(direction) { const item = direction > 0 ? queue.next($('loop').checked) : queue.previous($('loop').checked); if (item) void load(true); }
         let suppressClick = false;
         $('toggle').addEventListener('click', () => { if (suppressClick) { suppressClick = false; return; } root.classList.toggle('is-collapsed'); $('toggle').setAttribute('aria-expanded', String(!root.classList.contains('is-collapsed'))); save(); });
         $('close').addEventListener('click', () => $('toggle').click());
         document.addEventListener('click', e => { if (!root.contains(e.target) && !root.classList.contains('is-collapsed')) { root.classList.add('is-collapsed'); $('toggle').setAttribute('aria-expanded', 'false'); save(); } }, true);
         document.addEventListener('keydown', e => { if (e.key === 'Escape' && !root.classList.contains('is-collapsed')) { root.classList.add('is-collapsed'); $('toggle').setAttribute('aria-expanded', 'false'); save(); $('toggle').focus(); } });
-        $('add').addEventListener('click', () => $('files').click());
-        $('files').addEventListener('change', e => { const wasEmpty = !queue.current(); queue.add(Array.from(e.target.files)); e.target.value = ''; if (wasEmpty && queue.current()) load(false); else render(); });
+        $('add').addEventListener('click', async () => {
+            if (electronApi && typeof electronApi.selectAudioFiles === 'function') {
+                const picked = await electronApi.selectAudioFiles();
+                if (Array.isArray(picked) && picked.length) {
+                    const wasEmpty = !queue.current();
+                    queue.addLocalEntries(picked);
+                    savePlaylist();
+                    if (wasEmpty && queue.current()) void load(false); else render();
+                }
+                return;
+            }
+            $('files').click();
+        });
+        $('files').addEventListener('change', e => {
+            const wasEmpty = !queue.current();
+            const getPath = electronApi && typeof electronApi.getPathForFile === 'function' ? electronApi.getPathForFile : null;
+            queue.add(Array.from(e.target.files), getPath);
+            savePlaylist();
+            e.target.value = '';
+            if (wasEmpty && queue.current()) void load(false); else render();
+        });
         $('play').addEventListener('click', () => { if (audio.paused) play(); else audio.pause(); });
         $('previous').addEventListener('click', () => move(-1)); $('next').addEventListener('click', () => move(1));
         $('loop').addEventListener('change', save);

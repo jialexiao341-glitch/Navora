@@ -35,3 +35,29 @@ test('loop defaults on for new and existing preferences and respects explicit ne
  assert.equal(ambientLoopEnabled({loop:false, loopPreferenceVersion:1}), false);
  assert.equal(ambientLoopEnabled({loop:true, loopPreferenceVersion:1}), true);
 });
+
+test('local audio playlist entries deduplicate, serialize, and restore safely', () => {
+ const {
+  createAmbientQueue,
+  serializePersistedTracks,
+  parsePersistedTracks,
+ } = require('../channel/web/static/js/core/ambient-player.js');
+ const released = [];
+ const q = createAmbientQueue({ createObjectURL: f => `blob:${f.name}`, revokeObjectURL: u => released.push(u) });
+ q.addBuiltins([{ name: 'Still water', url: '/assets/audio/still.wav' }]);
+ q.addLocalEntries([
+  { name: 'rain.mp3', path: 'D:/Music/rain.mp3' },
+  { name: 'rain.mp3', path: 'D:/Music/rain.mp3' },
+  { name: '', path: 'D:/Music/lofi.flac' },
+ ]);
+ assert.equal(q.items.length, 3);
+ assert.equal(q.items[2].name, 'lofi.flac');
+ const saved = serializePersistedTracks(q.items);
+ assert.deepEqual(saved, [
+  { name: 'rain.mp3', path: 'D:/Music/rain.mp3' },
+  { name: 'lofi.flac', path: 'D:/Music/lofi.flac' },
+ ]);
+ assert.deepEqual(parsePersistedTracks(JSON.stringify(saved)), saved);
+ assert.deepEqual(parsePersistedTracks('bad-json'), []);
+ assert.deepEqual(parsePersistedTracks(JSON.stringify([{ name: 'no-path' }, null])), []);
+});
