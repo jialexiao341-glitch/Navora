@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  [English] | [<a href="docs/zh/README.md">中文</a>]
+  [English] | [<a href="docs/zh/README.md">中文</a>] | [<a href="docs/zh/README-Hant.md">繁體中文</a>] | [<a href="docs/ja/README.md">日本語</a>]
 </p>
 
 **Navora（灵舟）** is an open-source personal AI Agent workbench and extensible Agent Harness. Built on top of the open-source [CowAgent](https://github.com/zhayujie/CowAgent) architecture, it combines proactive task planning, multi-agent teams, three-tier long-term memory, a structured knowledge base, tools & MCP, multi-channel IM access, an interactive Web Console with companion & ambient features, and a unified Electron desktop client.

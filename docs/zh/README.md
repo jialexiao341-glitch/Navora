@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  [<a href="../../README.md">English</a>] | [中文]
+  [<a href="../../README.md">English</a>] | [简体中文] | [<a href="README-Hant.md">繁體中文</a>] | [<a href="../ja/README.md">日本語</a>]
 </p>
 
 **灵舟 · Navora** 是开源的个人 AI Agent 工作台与可扩展 Agent Harness。基于开源项目 [CowAgent](https://github.com/zhayujie/CowAgent) 架构构建，集成了主动任务规划、多智能体团队、三层长期记忆、结构化知识库、工具与 MCP、多通道 IM 接入、带互动桌宠与休闲氛围组件的 Web 控制台，以及统一体验的 Electron 桌面客户端。

@@ -10,7 +10,7 @@
 
 ## 实施与验证
 
-- [ ] 在 `tests/web_companion.test.cjs` 先测试视口边界、障碍避让和与距离相关的时长，确认失败。
-- [ ] 修改 `channel/web/static/js/core/companion.js` 实现目标选择、连续调度及安全中断，支持所有视图、输入和弹窗暂停。
-- [ ] 修改 `channel/web/static/css/ambient-player.css` 配合动态时长与减少动态效果。
-- [ ] 运行小伙伴及相关网页测试，检查变更与未相关的工作区修改。
+- [x] 在 `tests/web_companion.test.cjs` 先测试视口边界、障碍避让和与距离相关的时长，确认失败。
+- [x] 修改 `channel/web/static/js/core/companion.js`（现已统一演进为 `indesktop-pet.js`）实现目标选择、连续调度及安全中断，支持所有视图、输入和弹窗暂停。
+- [x] 修改 `channel/web/static/css/ambient-player.css`（及 `indesktop-pet.css`）配合动态时长与减少动态效果。
+- [x] 运行小伙伴及相关网页测试，检查变更与未相关的工作区修改。

@@ -1,25 +1,25 @@
-# CowAgent Desktop
+# Navora Desktop
 
-Cross-platform desktop client for CowAgent, built with Electron + React + TypeScript.
+Cross-platform desktop client for Navora, built with Electron + TypeScript + Vite.
 
 ## Development
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
-- Python 3.7+ (for the backend)
+- Node.js 20+
+- npm
+- Python 3.11+ (for the backend)
 
 ### Setup
 
 ```bash
 cd desktop
-npm install
+npm ci
 ```
 
 ### Run in Development
 
-Start the renderer dev server and Electron together:
+Start the lightweight boot shell build and Electron together:
 
 ```bash
 npm run dev
@@ -28,54 +28,43 @@ npm run dev
 Or run them separately:
 
 ```bash
-# Terminal 1: Start Vite dev server
+# Terminal 1: Start Vite dev server for the boot/error shell
 npm run dev:renderer
 
-# Terminal 2: Start Electron (after renderer is ready)
+# Terminal 2: Start Electron (launches the Python backend and loads the Web Console)
 npm run dev:main
 ```
 
-The app will automatically start the Python backend from the parent directory.
+### Build Installer
 
-### Build
+On Windows x64 (bundles the PyInstaller Python backend and packages the NSIS installer):
 
-```bash
-# Build for current platform
-npm run dist
-
-# Build for macOS only
-npm run dist:mac
-
-# Build for Windows only
-npm run dist:win
+```powershell
+powershell -ExecutionPolicy Bypass -File desktop/build/build-win.ps1
 ```
 
-Build outputs are placed in the `release/` directory.
+Build outputs are placed in `desktop/release/`.
 
 ## Architecture
 
-```
+```text
 desktop/
+├── build/                 # PyInstaller spec, NSIS hooks, and local Windows build script
 ├── src/
 │   ├── main/              # Electron main process
-│   │   ├── index.ts       # Window management, IPC
+│   │   ├── index.ts       # Window management, IPC, backend & audio bridge
+│   │   ├── pet-window.ts  # Transparent always-on-top desktop pet overlay & Alt+P hotkey
 │   │   ├── python-manager.ts  # Python backend lifecycle
-│   │   └── preload.ts     # Context bridge for renderer
-│   └── renderer/          # React UI (Vite)
-│       └── src/
-│           ├── api/       # HTTP client for backend APIs
-│           ├── components/ # Reusable UI components
-│           ├── hooks/     # React hooks
-│           ├── pages/     # Page components
-│           └── types.ts   # TypeScript types
-├── resources/             # App icons
-├── package.json           # Dependencies and build config
-└── vite.config.ts         # Vite config
+│   │   ├── preload.ts     # Context bridge for Web Console & pet overlay
+│   │   ├── tray.ts        # System tray controls
+│   │   └── updater.ts     # GitHub Releases auto-updater
+│   └── renderer/          # Lightweight boot/error shell (BootShell + StatusScreen)
+└── vite.config.ts         # Vite config (copies minimal boot assets only)
 ```
 
 ### How it Works
 
-1. Electron main process starts and creates the app window
-2. It spawns the Python backend (`app.py`) as a child process
-3. The React UI communicates with the Python backend via HTTP APIs
-4. SSE (Server-Sent Events) is used for streaming chat responses and live logs
+1. Electron main process starts and renders the lightweight `StatusScreen` boot shell
+2. It spawns the Python backend (`app.py` in dev, `cowagent-backend` in packaged builds)
+3. Once ready, the main window navigates directly to the backend's local Web Console (`http://127.0.0.1:<port>/`)
+4. When the floating desktop pet mode is enabled, a transparent always-on-top window loads `/pet` and stays active even when the main window is minimized to tray
