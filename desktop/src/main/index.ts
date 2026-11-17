@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, session, shell, ipcMain, dialog, nativeImage, Notification, systemPreferences, crashReporter, Menu, clipboard, net } from 'electron'
+import { app, BrowserWindow, screen, session, shell, ipcMain, dialog, nativeImage, nativeTheme, Notification, systemPreferences, crashReporter, Menu, clipboard, net } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -6,7 +6,7 @@ import http from 'http'
 import { PythonBackend, BackendError } from './python-manager'
 import { buildAppMenu } from './menu'
 import { createTray, destroyTray, getTray } from './tray'
-import { initUpdater, checkForUpdates, startDownload, quitAndInstall, setUpdateLanguage, setUpdateFeedQuery } from './updater'
+import { initUpdater, checkForUpdates, startDownload, quitAndInstall, setUpdateLanguage, setUpdateFeedQuery, getLastUpdateStatus } from './updater'
 import { setupThemeIPC, loadAppConfig } from './themes'
 import { setupHttpRelayIPC } from './http-relay'
 import {
@@ -405,6 +405,44 @@ async function copyImageFromUrl(srcURL: string): Promise<void> {
   }
 }
 
+function getFallbackRendererHtml(): string {
+  return path.join(__dirname, '../renderer/index.html')
+}
+
+function loadFallbackRenderer(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const rendererHtml = getFallbackRendererHtml()
+
+  if (isDev) {
+    findViteDevServer().then((devUrl) => {
+      if (!mainWindow || mainWindow.isDestroyed()) return
+      if (devUrl) {
+        console.log(`[Electron] Loading Vite dev server: ${devUrl}`)
+        mainWindow.loadURL(devUrl)
+        mainWindow.webContents.openDevTools()
+      } else if (fs.existsSync(rendererHtml)) {
+        console.log('[Electron] Vite dev server not found, loading built files')
+        mainWindow.loadFile(rendererHtml)
+      } else {
+        console.error('[Electron] No renderer available. Run "npm run build:renderer" first.')
+      }
+    })
+  } else {
+    mainWindow.loadFile(rendererHtml)
+  }
+}
+
+function loadWebConsole(port: number): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const targetOrigin = `http://127.0.0.1:${port}`
+  const currentUrl = mainWindow.webContents.getURL() || ''
+  if (currentUrl.startsWith(`${targetOrigin}/`) || currentUrl === targetOrigin) {
+    return
+  }
+  console.log(`[Electron] Loading Navora Web Console: ${targetOrigin}/`)
+  void mainWindow.loadURL(`${targetOrigin}/`)
+}
+
 function createWindow() {
   const state = loadWindowState()
 
@@ -420,7 +458,7 @@ function createWindow() {
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     trafficLightPosition: isMac ? { x: 14, y: 16 } : undefined,
     frame: isMac ? undefined : false,
-    backgroundColor: '#0e0e10',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#14161a' : '#f1f3f6',
     icon: getIconPath(),
     title: app.name,
     show: false,
@@ -451,23 +489,10 @@ function createWindow() {
     screen.removeListener('display-metrics-changed', recheck)
   })
 
-  const rendererHtml = path.join(__dirname, '../renderer/index.html')
-
-  if (isDev) {
-    findViteDevServer().then((devUrl) => {
-      if (devUrl) {
-        console.log(`[Electron] Loading Vite dev server: ${devUrl}`)
-        mainWindow?.loadURL(devUrl)
-        mainWindow?.webContents.openDevTools()
-      } else if (fs.existsSync(rendererHtml)) {
-        console.log('[Electron] Vite dev server not found, loading built files')
-        mainWindow?.loadFile(rendererHtml)
-      } else {
-        console.error('[Electron] No renderer available. Run "npm run build:renderer" first.')
-      }
-    })
+  if (pythonBackend?.getStatus() === 'ready') {
+    loadWebConsole(pythonBackend.getPort())
   } else {
-    mainWindow.loadFile(rendererHtml)
+    loadFallbackRenderer()
   }
 
   // Surface renderer-side console output and load failures to the main-process
@@ -488,6 +513,11 @@ function createWindow() {
   // "initialization failed" with no reason attached.
   mainWindow.webContents.on('did-finish-load', () => {
     sendBackendState()
+    emitMaximizeState()
+    const updateStatus = getLastUpdateStatus()
+    if (updateStatus) {
+      mainWindow?.webContents.send('update-status', updateStatus)
+    }
   })
 
   mainWindow.once('ready-to-show', () => {
@@ -502,13 +532,22 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  // Last-resort backstop for a stray file drop: Chromium would navigate the
-  // renderer to the dropped file and the UI would be gone until restart.
-  // Renderer reloads keep the same URL, so they are unaffected.
+  // Last-resort backstop for a stray file drop or external link navigation:
+  // keep the app anchored to its local console URL or fallback screen.
   mainWindow.webContents.on('will-navigate', (e, url) => {
     if (url.startsWith('file:') && url !== mainWindow?.webContents.getURL()) {
       console.warn(`[Electron] Blocked navigation to dropped file: ${url}`)
       e.preventDefault()
+      return
+    }
+    if (/^https?:\/\//i.test(url)) {
+      const port = pythonBackend?.getPort()
+      const localOrigin = port ? `http://127.0.0.1:${port}` : ''
+      const isLocal = (localOrigin && url.startsWith(localOrigin)) || (isDev && url.startsWith('http://localhost:5173'))
+      if (!isLocal) {
+        e.preventDefault()
+        shell.openExternal(url)
+      }
     }
   })
 
@@ -588,6 +627,7 @@ async function startBackend() {
   pythonBackend.on('ready', (port: number) => {
     console.log(`[backend] ready on port ${port}`)
     mainWindow?.webContents.send('backend-status', { status: 'ready', port })
+    loadWebConsole(port)
   })
 
   // The port isn't a constant: pickPort() may land on a fallback when the
@@ -613,6 +653,10 @@ async function startBackend() {
     // impossible to diagnose from the terminal.
     console.error(`[backend] error: ${error.code} — ${error.message}${error.path ? ` [${error.path}]` : ''}`)
     sendBackendState()
+    const currentUrl = mainWindow?.webContents.getURL() || ''
+    if (currentUrl.startsWith('http://127.0.0.1:')) {
+      loadFallbackRenderer()
+    }
   })
 
   pythonBackend.on('log', (line: string) => {

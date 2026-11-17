@@ -49,6 +49,10 @@ const App: React.FC = () => {
   const onboardingOpen = useOnboardingStore((s) => s.open)
   const maybeOpenOnboarding = useOnboardingStore((s) => s.maybeOpen)
   const [, forceUpdate] = useState(0)
+  // In Electron desktop mode, mainWindow navigates to the backend's Web Console
+  // as soon as the backend is ready; this React shell only renders StatusScreen
+  // during startup/error so the legacy React UI never flashes before navigation.
+  const isDesktopWebConsole = typeof window !== 'undefined' && !!window.electronAPI
   // Auth gate for web_password-protected backends. 'checking' until we know
   // whether login is needed; 'need_login' shows the password screen; 'ok' lets
   // the main UI render.
@@ -81,7 +85,7 @@ const App: React.FC = () => {
   // Once the backend is ready, check whether a web_password is set. If so and
   // this session isn't authenticated, show the login gate before the app.
   useEffect(() => {
-    if (backend.status !== 'ready') {
+    if (isDesktopWebConsole || backend.status !== 'ready') {
       setAuthState('checking')
       return
     }
@@ -130,7 +134,7 @@ const App: React.FC = () => {
   // onboarding wizard. It's config-driven — shown whenever the chat model isn't
   // configured (and not dismissed earlier this session); no persisted flag.
   useEffect(() => {
-    if (backend.status !== 'ready' || authState !== 'ok') return
+    if (isDesktopWebConsole || backend.status !== 'ready' || authState !== 'ok') return
     // An extension may opt out of the built-in setup wizard.
     if (product.onboarding?.enabled === false) return
     let cancelled = false
@@ -164,21 +168,21 @@ const App: React.FC = () => {
   // the app — the team affordances simply stay hidden.
   const refreshRoster = useAgentStore((s) => s.refresh)
   useEffect(() => {
-    if (backend.status === 'ready' && authState === 'ok') void refreshRoster()
-  }, [backend.status, authState, backend.baseUrl, refreshRoster])
+    if (!isDesktopWebConsole && backend.status === 'ready' && authState === 'ok') void refreshRoster()
+  }, [isDesktopWebConsole, backend.status, authState, backend.baseUrl, refreshRoster])
 
   // The menu the user arranged, shared with the web console. Until it answers
   // the rail draws the last copy seen, or the built-in menu.
   const loadMenu = useMenuStore((s) => s.load)
   useEffect(() => {
-    if (backend.status === 'ready' && authState === 'ok') void loadMenu()
-  }, [backend.status, authState, backend.baseUrl, loadMenu])
+    if (!isDesktopWebConsole && backend.status === 'ready' && authState === 'ok') void loadMenu()
+  }, [isDesktopWebConsole, backend.status, authState, backend.baseUrl, loadMenu])
 
   // Poll for scheduler/push messages once the backend and auth are settled.
-  usePushPoll(backend.status === 'ready' && authState === 'ok')
+  usePushPoll(!isDesktopWebConsole && backend.status === 'ready' && authState === 'ok')
   // Independently watch the global runs ledger so a scheduled task firing into a
   // non-active session still notifies (usePushPoll only sees the open session).
-  useSchedulerNotifyPoll(backend.status === 'ready' && authState === 'ok')
+  useSchedulerNotifyPoll(!isDesktopWebConsole && backend.status === 'ready' && authState === 'ok')
 
   // A clicked OS notification asks us to open its session.
   useEffect(() => {
@@ -219,6 +223,19 @@ const App: React.FC = () => {
         error={backend.error}
         code={backend.code}
         path={backend.path}
+        slow={backend.slow}
+        reconnecting={backend.reconnecting}
+        onRetry={backend.restart}
+      />
+    )
+  }
+
+  // Keep showing the loading screen in Electron mode while mainWindow navigates
+  // to the Web Console URL, preventing any flash of the legacy React UI.
+  if (isDesktopWebConsole) {
+    return (
+      <StatusScreen
+        status="connecting"
         slow={backend.slow}
         reconnecting={backend.reconnecting}
         onRetry={backend.restart}

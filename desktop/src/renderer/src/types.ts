@@ -96,7 +96,7 @@ export type UpdateStatus =
   | { state: 'not-available' }
   | { state: 'downloading'; percent: number }
   | { state: 'downloaded'; version: string }
-  | { state: 'error'; message: string }
+  | { state: 'error'; message: string; userInitiated?: boolean }
 
 /** Why the backend failed. Mirrors BackendErrorCode in main/python-manager.ts. */
 export type BackendErrorCode =

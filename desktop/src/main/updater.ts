@@ -21,7 +21,7 @@ export type UpdateStatus =
   | { state: 'not-available' }
   | { state: 'downloading'; percent: number }
   | { state: 'downloaded'; version: string }
-  | { state: 'error'; message: string }
+  | { state: 'error'; message: string; userInitiated?: boolean }
 
 let getWindow: () => BrowserWindow | null = () => null
 
@@ -166,7 +166,14 @@ function safeStringify(v: unknown): string {
   }
 }
 
+let lastStatus: UpdateStatus | null = null
+
+export function getLastUpdateStatus(): UpdateStatus | null {
+  return lastStatus
+}
+
 function send(status: UpdateStatus) {
+  lastStatus = status
   getWindow()?.webContents.send('update-status', status)
 }
 
@@ -210,15 +217,18 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
     send({ state: 'checking' })
   })
   autoUpdater.on('update-available', (info) => {
-    log(`update-available: current=${app.getVersion()} remote=${info.version} userInitiated=${userInitiatedCheck} -> update needed`)
+    const manual = userInitiatedCheck
+    userInitiatedCheck = false
+    log(`update-available: current=${app.getVersion()} remote=${info.version} userInitiated=${manual} -> update needed`)
     send({
       state: 'available',
       version: info.version,
       notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
-      userInitiated: userInitiatedCheck,
+      userInitiated: manual,
     })
   })
   autoUpdater.on('update-not-available', (info) => {
+    userInitiatedCheck = false
     log(`update-not-available: current=${app.getVersion()} remote=${info?.version ?? '<unknown>'} -> up to date`)
     send({ state: 'not-available' })
   })
@@ -231,9 +241,11 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
     send({ state: 'downloaded', version: info.version })
   })
   autoUpdater.on('error', (err) => {
+    const manual = userInitiatedCheck
+    userInitiatedCheck = false
     const message = err == null ? 'unknown' : err.message || String(err)
     log(`error: ${message}`, err instanceof Error && err.stack ? err.stack : '')
-    send({ state: 'error', message })
+    send({ state: 'error', message, userInitiated: manual })
   })
 }
 
@@ -282,10 +294,12 @@ function runCheck(): void {
       checkInFlight = false
     })
     .catch((err) => {
+      const manual = userInitiatedCheck
+      userInitiatedCheck = false
       const message = err?.message || String(err)
       log(`checkForUpdates: request failed: ${message}`, err instanceof Error && err.stack ? err.stack : '')
       checkInFlight = false
-      send({ state: 'error', message })
+      send({ state: 'error', message, userInitiated: manual })
     })
 }
 
