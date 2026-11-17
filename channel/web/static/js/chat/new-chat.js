@@ -118,6 +118,7 @@ function newChat(optimistic = true, inherit = true) {
     resetSendBtnSendMode();  // fresh session has no in-flight reply
     startPolling();  // bump generation so old loop self-cancels, new loop uses fresh sessionId
     if (typeof resetTimeline === 'function') resetTimeline();
+    if (typeof clearTeamCollabStrip === 'function') clearTeamCollabStrip();
     messagesDiv.innerHTML = '';
     const ws = document.createElement('div');
     ws.id = 'welcome-screen';

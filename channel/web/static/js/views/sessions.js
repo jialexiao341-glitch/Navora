@@ -663,6 +663,7 @@ function switchSession(newSessionId, agentId) {
 
     messagesDiv.innerHTML = '';
     if (typeof resetTimeline === 'function') resetTimeline();
+    if (typeof clearTeamCollabStrip === 'function') clearTeamCollabStrip();
     loadHistory(1);
     startPolling();
 

@@ -112,6 +112,11 @@ test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and 
  assert.equal(petTaskStatus('tool_start','bash').phase,'terminal');
  assert.equal(petTaskStatus('tool_start','memory_search').phase,'memory');
  assert.equal(petTaskStatus('tool_start','delegate',{speakerName:'Coder'}).text,'[Coder] 正在执行：delegate');
+ assert.equal(petTaskStatus('peer_start','', {speakerName:'Planner'}).phase,'team');
+ assert.equal(petTaskStatus('peer_start','', {speakerName:'Planner'}).text,'正在交接给 Planner…');
+ assert.equal(petTaskStatus('peer_end','').phase,'team');
+ assert.equal(petTaskStatus('subagent_step','web_search',{speakerName:'Coder'}).phase,'team');
+ assert.equal(petTaskStatus('subagent_step','web_search',{speakerName:'Coder'}).text,'[Coder] 子任务执行中：web_search');
 
  assert.equal(petFocusReaction({running:true,mode:'work'}).clipGroup,'focus');
  assert.equal(petFocusReaction({running:false,mode:'work',completed:true}).clipGroup,'celebrate');

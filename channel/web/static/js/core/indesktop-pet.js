@@ -60,11 +60,22 @@ function petSnapTarget(x, y, width, height, w, h, dockSurface = null, threshold 
 function petTaskStatus(type, tool = '', meta = {}) {
     const tr = meta && typeof meta.tr === 'function' ? meta.tr : null;
     const prefix = meta && meta.speakerName ? `[${meta.speakerName}] ` : '';
-    const format = (key, fallback, vars = {}) => {
+    const format = (key, fallback, vars = {}, withPrefix = true) => {
         let text = tr ? tr(key, fallback) : fallback;
         for (const [k, v] of Object.entries(vars)) text = text.replace(`{${k}}`, v);
-        return prefix + text;
+        return withPrefix ? prefix + text : text;
     };
+    if (type === 'peer_start') {
+        const target = (meta && meta.targetName) || (meta && meta.speakerName) || tool || '团队成员';
+        return { phase: 'team', text: format('pet_phase_handoff', `正在交接给 ${target}…`, { name: target }, false) };
+    }
+    if (type === 'peer_end') {
+        return { phase: 'team', text: format('pet_phase_team', '正在与团队成员协作…') };
+    }
+    if (type === 'subagent_step') {
+        const subTool = tool || 'step';
+        return { phase: 'team', text: format('pet_phase_subagent', `子任务执行中：${subTool}`, { tool: subTool }) };
+    }
     if (type === 'tool_start') {
         const name = tool || '工具';
         if (/web_search|web_fetch|browser/.test(name)) return { phase: 'search', text: format('pet_phase_search', `正在执行：${name}`, { tool: name }) };

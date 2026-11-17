@@ -231,6 +231,7 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
     // happened, rather than turns buried inside each other.
     const speakerStack = [];
     const peerSpeaker = () => (speakerStack.length ? speakerStack[speakerStack.length - 1] : null);
+    const collabTracker = (typeof createTeamCollabTracker === 'function') ? createTeamCollabTracker() : null;
 
     // Seal the current bubble so whatever comes next starts a new one. In-flight
     // tools are deliberately left alone: the delegating call is still running
@@ -276,6 +277,12 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
     const isActive = () => ownerSession === sessionId && ownerAgent === activeAgentId;
     sessionActiveRequest[ownerKey] = requestId;
     updateEditButtonsState();
+    if (collabTracker) {
+        collabTracker.startTurn(liveSpeakerAgent(requestId));
+        if (isActive() && typeof setActiveTeamCollab === 'function') {
+            setActiveTeamCollab(collabTracker, ownerKey);
+        }
+    }
     // Per-request event buffer used to rebuild the bubble on re-attach.
     const buffer = streamBuffers[requestId] || { items: [], timestamp };
     streamBuffers[requestId] = buffer;
@@ -341,6 +348,10 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
         `;
         messagesDiv.appendChild(botEl);
         refreshChatScrollControls();
+        if (collabTracker) {
+            const targetKey = `agent:${(speaker && (speaker.id || speaker.name)) || 'Agent'}`;
+            collabTracker.setTarget(targetKey, botEl);
+        }
         stepsEl = botEl.querySelector('.agent-steps');
         contentEl = botEl.querySelector('.answer-content');
         mediaEl = botEl.querySelector('.media-content');
@@ -404,12 +415,32 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
         return (speaker && (speaker.name || speaker.id)) || '';
     }
     function processSSEItem(item) {
-            const speakerName = activeCompanionSpeaker();
-            const companionPhaseKey = ['reasoning', 'tool_start', 'tool_end', 'delta', 'cancelled', 'error'].includes(item.type) ? `${item.type}:${item.tool || ''}:${speakerName}` : '';
+            const speakerName = item.type === 'peer_start'
+                ? (item.agent_name || item.agent_id || activeCompanionSpeaker())
+                : activeCompanionSpeaker();
+            const isCompanionSubstep = item.type === 'subagent_step' && item.phase === 'start';
+            const companionAllowed = ['reasoning', 'tool_start', 'tool_end', 'delta', 'cancelled', 'error', 'peer_start', 'peer_end'].includes(item.type)
+                || isCompanionSubstep;
+            const companionPhaseKey = companionAllowed ? `${item.type}:${item.tool || ''}:${speakerName}` : '';
             if (isActive() && companionPhaseKey && companionPhaseKey !== lastCompanionPhase) {
                 lastCompanionPhase = companionPhaseKey;
                 document.dispatchEvent(new CustomEvent('navora:companion-phase', {detail: {type: item.type, tool: item.tool || '', speakerName}}));
             }
+            const collabPreToolEl = item.type === 'subagent_step' && item.card_id
+                ? toolElements.get(item.card_id)
+                : (item.tool_call_id ? toolElements.get(item.tool_call_id) : null);
+            const _syncCollab = () => {
+                if (!collabTracker) return;
+                const toolEl = collabPreToolEl || (item.tool_call_id ? toolElements.get(item.tool_call_id) : null);
+                collabTracker.applyEvent(item, {
+                    toolEl,
+                    targetEl: botEl,
+                    speaker: peerSpeaker() || liveSpeakerAgent(requestId),
+                });
+                if (isActive() && typeof syncActiveTeamCollab === 'function') {
+                    syncActiveTeamCollab(collabTracker, ownerKey);
+                }
+            };
             if (item.type !== 'delta') flushDeltaRender();
             if (item.type === 'reasoning') {
                 ensureBotEl();
@@ -896,6 +927,7 @@ function startSSE(requestId, loadingEl, timestamp, replayItems, resume) {
                 }
                 resetSendBtnSendMode();
             }
+            _syncCollab();
     }
 
     function connect() {

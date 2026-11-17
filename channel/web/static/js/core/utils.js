@@ -111,7 +111,7 @@ function renderSubagentStep(toolEl, item) {
         // The first step is also the first sign of life from a sub agent that
         // runs for minutes, so it opens the card it belongs to.
         toolEl.classList.add('expanded');
-        updateSubstepCount(toolEl, list.children.length);
+        updateSubstepCount(toolEl, list.children.length, item.tool || '');
         return;
     }
 
@@ -135,11 +135,24 @@ function renderSubagentStep(toolEl, item) {
         }
         stepEl.title = String(item.error);
     }
+    const activeIcon = list.querySelector('.tool-substep-icon.fa-spin');
+    const activeNameEl = activeIcon && activeIcon.parentElement
+        ? activeIcon.parentElement.querySelector('.tool-substep-name')
+        : null;
+    updateSubstepCount(toolEl, list.children.length, activeNameEl ? activeNameEl.textContent : '');
 }
 
-function updateSubstepCount(toolEl, count) {
+function updateSubstepCount(toolEl, count, activeTool = '') {
     const countEl = toolEl.querySelector('.tool-substep-count');
-    if (countEl) countEl.textContent = count === 1 ? '1 step' : `${count} steps`;
+    if (!countEl) return;
+    const localized = (typeof t === 'function')
+        ? (count === 1 ? t('substep_count_one') : t('substep_count_many').replace('{n}', String(count)))
+        : '';
+    const base = (localized && localized !== 'substep_count_one' && localized !== 'substep_count_many')
+        ? localized
+        : (count === 1 ? '1 step' : `${count} steps`);
+    countEl.textContent = activeTool ? `${base} · ${activeTool}` : base;
+    countEl.classList.toggle('has-active', Boolean(activeTool));
 }
 
 let _scrollRafId = null;

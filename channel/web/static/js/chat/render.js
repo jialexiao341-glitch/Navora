@@ -8,6 +8,8 @@
 const ATTACHMENT_MARKER_TYPES = {
     '工作空间文件': 'workspace_ref', '工作空间檔案': 'workspace_ref', 'Workspace file': 'workspace_ref',
     '工作空间目录': 'workspace_dir', '工作空间目錄': 'workspace_dir', 'Workspace directory': 'workspace_dir',
+    '知识库文档': 'knowledge_ref', '知識庫文件': 'knowledge_ref', 'Knowledge document': 'knowledge_ref',
+    '记忆文件': 'memory_ref', '記憶檔案': 'memory_ref', 'Memory file': 'memory_ref',
     '图片': 'image', '圖片': 'image', 'Image': 'image',
     '视频': 'video', '影片': 'video', 'Video': 'video',
     '目录': 'directory', '目錄': 'directory', 'Directory': 'directory',
@@ -66,8 +68,10 @@ function createUserMessageEl(content, timestamp, attachments) {
             }
             const icon = a.file_type === 'video'
                 ? 'fa-film'
+                : (a.file_type === 'knowledge_ref' ? 'fa-book'
+                : (a.file_type === 'memory_ref' ? 'fa-brain'
                 : (a.file_type === 'directory' ? 'fa-folder-tree'
-                : (a.is_dir ? 'fa-folder' : 'fa-file-alt'));
+                : (a.is_dir ? 'fa-folder' : 'fa-file-alt'))));
             const suffix = a.file_type === 'directory' && a.file_count
                 ? ` (${a.file_count})`
                 : '';

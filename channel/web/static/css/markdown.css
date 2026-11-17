@@ -263,8 +263,13 @@
 /* Sub agent steps: the tool calls a sub agent made inside one spawn */
 .agent-tool-step .tool-substep-count {
     font-size: 0.65rem;
-    opacity: 0.5;
+    opacity: 0.62;
     margin-left: 0.25rem;
+    white-space: nowrap;
+}
+.agent-tool-step .tool-substep-count.has-active {
+    color: rgb(var(--cw-accent-ink));
+    opacity: 0.95;
 }
 .tool-substeps {
     display: flex;
