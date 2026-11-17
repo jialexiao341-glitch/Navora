@@ -122,4 +122,26 @@
                         onclick="handleLogout()" title="Logout" data-i18n-title="logout">
                     <i class="fas fa-sign-out-alt text-base"></i>
                 </button>
+
+                <!-- Desktop frameless window controls (Windows/Linux Electron only) -->
+                <div id="desktop-window-controls" class="desktop-window-controls" aria-label="Window controls">
+                    <button type="button" id="win-ctrl-min" class="desktop-win-btn"
+                            onclick="window.electronAPI?.windowMinimize()" aria-label="Minimize">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M2 6h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button type="button" id="win-ctrl-max" class="desktop-win-btn"
+                            onclick="window.electronAPI?.windowMaximize()" aria-label="Maximize">
+                        <svg id="win-ctrl-max-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <rect x="2.2" y="2.2" width="7.6" height="7.6" rx="1" stroke="currentColor" stroke-width="1.2"/>
+                        </svg>
+                    </button>
+                    <button type="button" id="win-ctrl-close" class="desktop-win-btn desktop-win-close"
+                            onclick="window.electronAPI?.windowClose()" aria-label="Close">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
             </header>

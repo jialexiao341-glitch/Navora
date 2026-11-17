@@ -119,6 +119,10 @@
         if (localStorage.getItem('cow_sidebar_collapsed') === '1') {
             document.documentElement.classList.add('sidebar-collapsed');
         }
+        if (window.electronAPI) {
+            document.documentElement.classList.add('electron-desktop');
+            document.documentElement.classList.add(window.electronAPI.platform === 'darwin' ? 'electron-mac' : 'electron-win');
+        }
         // A customised menu is drawn by menu.js; keep the built-in one in
         // sidebar.html from showing first. The timer is the way out should
         // that script never run.
@@ -232,6 +236,7 @@
          validates against. Only registers a popstate listener at load time;
          the first route is applied from initApp(), once auth has settled. -->
     <script defer src="/assets/js/core/router.js"></script>
+    <script defer src="/assets/js/core/desktop.js"></script>
 
     <!-- Ahead of chat/, not with the other views: chat/state.js computes
          sessionId at load time and activeSessionStorageKey() reads

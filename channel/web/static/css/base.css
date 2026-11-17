@@ -153,3 +153,103 @@
     height: 100%;
 }
 
+/* Electron Desktop Shell Integration */
+.desktop-window-controls {
+    display: none;
+    align-items: stretch;
+    height: 100%;
+    margin-right: -1rem;
+    margin-left: 0.25rem;
+    flex-shrink: 0;
+}
+html.electron-win .desktop-window-controls {
+    display: flex;
+}
+html.electron-desktop #main-content > header,
+html.electron-desktop #sidebar .sidebar-brand {
+    -webkit-app-region: drag;
+}
+html.electron-desktop #main-content > header button,
+html.electron-desktop #main-content > header a,
+html.electron-desktop #main-content > header input,
+html.electron-desktop #main-content > header select,
+html.electron-desktop #main-content > header [role="button"],
+html.electron-desktop #main-content > header .header-skins-wrap,
+html.electron-desktop #main-content > header #lang-selector,
+html.electron-desktop #sidebar .sidebar-brand [role="button"],
+html.electron-desktop #sidebar .sidebar-brand button,
+html.electron-desktop .desktop-window-controls,
+html.electron-desktop .desktop-window-controls button {
+    -webkit-app-region: no-drag;
+}
+.desktop-win-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 100%;
+    color: rgb(var(--cw-slate-500));
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.desktop-win-btn:hover {
+    background: rgb(var(--cw-slate-200) / 0.7);
+    color: rgb(var(--cw-slate-800));
+}
+.dark .desktop-win-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgb(var(--cw-slate-100));
+}
+.desktop-win-close:hover {
+    background: #e81123 !important;
+    color: #fff !important;
+}
+html.electron-mac #sidebar .sidebar-brand {
+    padding-top: 28px;
+    height: auto;
+    min-height: 76px;
+}
+html.electron-mac.sidebar-collapsed #main-content > header {
+    padding-left: 82px;
+}
+
+/* Desktop Auto-Update Banner */
+.desktop-update-banner {
+    position: fixed;
+    left: 14px;
+    bottom: 52px;
+    z-index: 80;
+    width: 248px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgb(var(--cw-slate-200));
+    background: rgb(var(--cw-panel));
+    color: rgb(var(--cw-slate-800));
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+}
+.dark .desktop-update-banner {
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgb(var(--cw-slate-100));
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.desktop-update-banner.hidden {
+    display: none;
+}
+.desktop-update-bar-track {
+    height: 6px;
+    width: 100%;
+    border-radius: 999px;
+    background: rgb(var(--cw-slate-200));
+    overflow: hidden;
+}
+.dark .desktop-update-bar-track {
+    background: rgba(255, 255, 255, 0.12);
+}
+.desktop-update-bar-fill {
+    height: 100%;
+    background: rgb(var(--cw-primary-500));
+    transition: width 0.2s ease;
+}
+

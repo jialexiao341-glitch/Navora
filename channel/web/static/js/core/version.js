@@ -116,8 +116,9 @@ function _renderUpdateAction(state, label, opts) {
     icon.className = iconClass;
 }
 
-// Managed installs never check GitHub.
+// Managed installs never check GitHub. Desktop client updates are handled via Electron.
 function _applyManagedInstall() {
+    if (window.electronAPI) return;
     if (UPDATE_META.install_kind !== 'managed') return;
     const item = document.getElementById('update-action-item');
     const text = document.getElementById('update-action-label');
@@ -132,6 +133,17 @@ function _applyManagedInstall() {
 
 // The single row's click behaviour depends on the current state.
 function onUpdateActionClick() {
+    if (window.electronAPI) {
+        if (_updateUiState === 'available' && typeof window.desktopTriggerUpdateAction === 'function') {
+            window.desktopTriggerUpdateAction();
+            closeUpdateMenu();
+            return;
+        }
+        if (!_updateChecking && !_updateRunning) {
+            checkForConsoleUpdate();
+        }
+        return;
+    }
     if (UPDATE_META.install_kind === 'managed') {
         if (UPDATE_META.manage_url) window.open(UPDATE_META.manage_url, '_blank', 'noopener,noreferrer');
         closeUpdateMenu();
@@ -151,6 +163,15 @@ function checkForConsoleUpdate() {
     if (_updateChecking || _updateRunning) return;
     _updateChecking = true;
     _renderUpdateAction('checking', t('update_checking'), { disabled: true });
+    if (window.electronAPI && typeof window.electronAPI.checkForUpdate === 'function') {
+        const lang = typeof currentLang !== 'undefined' ? currentLang : 'zh';
+        Promise.resolve(window.electronAPI.checkForUpdate(lang))
+            .catch(() => {
+                _updateChecking = false;
+                _renderUpdateAction('failed', t('update_error'));
+            });
+        return;
+    }
     fetch('/api/update/check', { method: 'POST' })
         .then(r => r.json())
         .then(data => {

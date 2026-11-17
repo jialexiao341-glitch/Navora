@@ -62,6 +62,14 @@ function sessionTitleOf(sid) {
 }
 
 function popNotification(title, body, sid, agentId) {
+    if (window.electronAPI && typeof window.electronAPI.notify === 'function') {
+        window.electronAPI.notify({
+            title: title,
+            body: body || title,
+            sessionId: sid || undefined,
+        }).catch(function() {});
+        return;
+    }
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     try {
         const n = new Notification(title, { body: body || title });
