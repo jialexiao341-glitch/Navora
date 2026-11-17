@@ -126,7 +126,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          hits="$(find desktop/build/dist -type f \( -name 'config.json' -o -name '.env' -o -name '.env.*' -o -name '*.pem' -o -name '*.key' \) ! -path '*/certifi/*' ! -path '*/playwright/*' || true)"
+          hits="$(find desktop/build/dist -type f \( -name 'config.json' -o -name '.env' -o -name '.env.*' -o -name '*.pem' -o -name '*.key' \) ! -path '*/certifi/*' ! -path '*/playwright/*' ! -path '*/grpc/_cython/_credentials/roots.pem' || true)"
           if [ -n "$hits" ]; then
             echo "::error::Sensitive or personal config file detected in backend bundle:"
             echo "$hits"
