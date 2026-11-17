@@ -288,29 +288,77 @@ def refresh_mcp_managers() -> None:
 
 
 def list_servers_with_status(workspace: Optional[str] = None) -> dict:
-    """Servers from disk plus ToolManager status. Never starts a server."""
+    """Servers from disk plus ToolManager status/tools/errors. Never starts a server."""
     from agent.tools.tool_manager import ToolManager
 
     servers = load_servers(workspace)
-    status_map = {}
+    detail_map = {}
     target = os.path.realpath(workspace) if workspace else None
     for manager in ToolManager.instances():
         if target and os.path.realpath(getattr(manager, "workspace_root", "")) != target:
             continue
-        status_map.update(manager.list_mcp_status())
+        if hasattr(manager, "list_mcp_details"):
+            detail_map.update(manager.list_mcp_details())
+        else:
+            for name, status in manager.list_mcp_status().items():
+                detail_map[name] = {"status": status, "error": None, "tools": []}
         if target:
             break
 
     out = []
     for cfg in servers:
         item = dict(cfg)
+        name = item.get("name")
+        detail = detail_map.get(name, {})
         if mcp_is_disabled(item):
             item["status"] = "disabled"
+            item["tools"] = []
+            item["error"] = None
         else:
-            item["status"] = status_map.get(item.get("name"), "idle")
+            item["status"] = detail.get("status", "idle")
+            item["tools"] = list(detail.get("tools") or [])
+            item["error"] = detail.get("error") or None
         item["type"] = normalize_transport(item.get("type"), has_url=bool(item.get("url")))
         out.append(item)
     return {"path": mcp_config_path(workspace), "servers": out}
+
+
+def reload_server(workspace: Optional[str], name: str) -> dict:
+    """Trigger a background reconnect/reload for a configured MCP server."""
+    from agent.tools.tool_manager import ToolManager
+    from common.state_dir import real_state_root
+
+    clean_name = str(name or "").strip()
+    if not clean_name:
+        raise McpConfigError("server name is required")
+
+    servers = load_servers(workspace)
+    match = next((s for s in servers if s.get("name") == clean_name), None)
+    if match is None:
+        raise McpConfigError(f"unknown MCP server: {clean_name}")
+    if mcp_is_disabled(match):
+        raise McpConfigError(f"MCP server '{clean_name}' is disabled")
+
+    target = os.path.realpath(workspace) if workspace else None
+    managers = []
+    for manager in ToolManager.instances():
+        if target and os.path.realpath(getattr(manager, "workspace_root", "")) != target:
+            continue
+        managers.append(manager)
+
+    if not managers and (target is None or target == os.path.realpath(real_state_root())):
+        managers = [ToolManager()]
+
+    for manager in managers:
+        if hasattr(manager, "refresh_mcp_if_changed"):
+            try:
+                manager.refresh_mcp_if_changed()
+            except Exception as exc:
+                logger.warning("[MCP] refresh before reload failed: %s", exc)
+        if hasattr(manager, "reload_mcp_server"):
+            manager.reload_mcp_server(clean_name)
+
+    return list_servers_with_status(workspace)
 
 
 def probe_server(cfg: dict) -> dict:

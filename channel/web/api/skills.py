@@ -319,6 +319,29 @@ class McpServerTestHandler:
             })
 
 
+class McpServerReloadHandler:
+    """Trigger a background reconnect/reload for one MCP server."""
+
+    def POST(self):
+        _require_auth()
+        web.header('Content-Type', 'application/json; charset=utf-8')
+        try:
+            from agent.tools.mcp.service import McpConfigError, reload_server
+
+            body = json.loads(web.data() or b"{}")
+            name = (body.get("name") or "").strip()
+            if not name:
+                return json.dumps({"status": "error", "message": "name is required"})
+            workspace = _mcp_workspace(body)
+            result = reload_server(workspace, name)
+            return json.dumps({"status": "success", "reloaded": name, **result}, ensure_ascii=False)
+        except McpConfigError as e:
+            return json.dumps({"status": "error", "message": str(e)})
+        except Exception as e:
+            logger.error(f"[WebChannel] MCP reload error: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
+
+
 class SkillsHandler:
     def GET(self):
         _require_auth()

@@ -94,6 +94,9 @@ class ToolManager:
             # server_name -> "pending" / "ready" / "failed"
             # Useful for UI / introspection while async loading is in progress.
             self._mcp_status: dict = {}
+        if not hasattr(self, '_mcp_errors'):
+            # server_name -> last initialization failure message
+            self._mcp_errors: dict = {}
         if not hasattr(self, '_mcp_signature'):
             # (mtime, sha256) of mcp.json the last time we loaded.
             # Used by refresh_mcp_if_changed() to skip re-parsing when nothing changed.
@@ -499,6 +502,8 @@ class ToolManager:
                 for tool_name in retired:
                     self._mcp_tool_vectors.pop(tool_name, None)
         self._mcp_status.pop(server_name, None)
+        if hasattr(self, '_mcp_errors'):
+            self._mcp_errors.pop(server_name, None)
 
     def _load_mcp_tools_async(self, mcp_servers_config):
         """
@@ -511,6 +516,9 @@ class ToolManager:
         try:
             from agent.tools.mcp.mcp_client import McpClient, McpClientRegistry, set_reload_callback
             from agent.tools.mcp.mcp_tool import McpTool
+
+            if not hasattr(self, '_mcp_errors'):
+                self._mcp_errors = {}
 
             registry = McpClientRegistry()
             self._mcp_registry = registry
@@ -536,18 +544,21 @@ class ToolManager:
                         if c.initialize():
                             return c
                         boot_failure["needs_auth"] = getattr(c, "needs_auth", False)
+                        boot_failure["error"] = getattr(c, "last_error", None)
                         return None
 
                     client, reused = registry.get_or_boot_shared(share_key, _boot)
                     if client is None:
                         if boot_failure.get("needs_auth"):
                             self._mcp_status[server_name] = "needs_auth"
+                            self._mcp_errors[server_name] = boot_failure.get("error") or "needs authorization"
                             logger.info(
                                 f"[MCP] Server '{server_name}' needs authorization — "
                                 f"waiting for the user to complete the OAuth flow"
                             )
                         else:
                             self._mcp_status[server_name] = "failed"
+                            self._mcp_errors[server_name] = boot_failure.get("error") or "initialization failed"
                             logger.warning(
                                 f"[MCP] Server '{server_name}' failed to initialize — skipping"
                             )
@@ -573,6 +584,7 @@ class ToolManager:
                     with registry._registry_lock:
                         registry._clients[server_name] = client
                     self._mcp_status[server_name] = "ready"
+                    self._mcp_errors.pop(server_name, None)
                     if reused:
                         # A shared subprocess this Agent attached to; log quietly
                         # so N Agents sharing one mcp.json don't repeat the line.
@@ -588,6 +600,7 @@ class ToolManager:
                         )
                 except Exception as e:
                     self._mcp_status[server_name] = "failed"
+                    self._mcp_errors[server_name] = str(e)
                     logger.warning(f"[MCP] Server '{server_name}' load failed: {e}")
 
             ready = sum(1 for s in self._mcp_status.values() if s == "ready")
@@ -605,31 +618,64 @@ class ToolManager:
         except Exception as e:
             logger.warning(f"[ToolManager] MCP background loader crashed: {e}")
 
-    def reload_mcp_server(self, server_name: str) -> None:
-        """Re-initialize a single MCP server (e.g. after OAuth authorization).
+    def reload_mcp_server(self, server_name: str) -> bool:
+        """Re-initialize a single MCP server (e.g. after OAuth authorization or console reload).
 
         Tears down any existing client for the server and starts it again in
-        the background, so a freshly-stored access token is picked up and the
-        server's tools become available on the next message.
+        the background, so a freshly-stored access token or fixed server becomes
+        available on the next message. Returns True when scheduled.
         """
         with self._mcp_lock:
             cfg = self._mcp_active_configs.get(server_name)
+            if not cfg:
+                for candidate in self._load_mcp_configs():
+                    if candidate.get("name") == server_name:
+                        cfg = candidate
+                        self._mcp_active_configs[server_name] = cfg
+                        break
         if not cfg:
             logger.warning(f"[MCP] reload requested for unknown server '{server_name}'")
-            return
-        logger.info(f"[MCP] Reloading server '{server_name}' after authorization")
+            return False
+        logger.info(f"[MCP] Reloading server '{server_name}'")
         self._teardown_mcp_server(server_name)
         self._mcp_status[server_name] = "pending"
+        if hasattr(self, "_mcp_errors"):
+            self._mcp_errors.pop(server_name, None)
         threading.Thread(
             target=self._load_mcp_tools_async,
             args=([cfg],),
             daemon=True,
             name=f"mcp-reload-{server_name}",
         ).start()
+        return True
 
     def list_mcp_status(self) -> dict:
         """Return {server_name: status} snapshot for UI / debugging."""
-        return dict(self._mcp_status)
+        return dict(getattr(self, "_mcp_status", {}) or {})
+
+    def list_mcp_details(self) -> dict:
+        """Return {server_name: {status, error, tools}} snapshot for UI diagnostics."""
+        statuses = dict(getattr(self, "_mcp_status", {}) or {})
+        errors = dict(getattr(self, "_mcp_errors", {}) or {})
+        tools_by_server = {}
+        for tool in list((getattr(self, "_mcp_tool_instances", {}) or {}).values()):
+            sname = getattr(tool, "server_name", None)
+            if not sname:
+                continue
+            tools_by_server.setdefault(sname, []).append({
+                "name": getattr(tool, "name", "") or "",
+                "remote_name": getattr(tool, "_remote_name", "") or getattr(tool, "name", "") or "",
+                "description": getattr(tool, "description", "") or "",
+            })
+        names = set(statuses) | set(errors) | set(tools_by_server)
+        return {
+            name: {
+                "status": statuses.get(name, "idle"),
+                "error": errors.get(name) or None,
+                "tools": sorted(tools_by_server.get(name, []), key=lambda t: t["name"]),
+            }
+            for name in names
+        }
 
     def sync_mcp_into_agent(self, agent) -> tuple:
         """

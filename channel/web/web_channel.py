@@ -151,6 +151,7 @@ URLS = (
     '/api/tools', 'ToolsHandler',
     '/api/mcp/servers', 'McpServersHandler',
     '/api/mcp/servers/test', 'McpServerTestHandler',
+    '/api/mcp/servers/reload', 'McpServerReloadHandler',
     '/api/skills', 'SkillsHandler',
     '/api/skills/content', 'SkillContentHandler',
     '/api/skills/files', 'SkillFilesHandler',
