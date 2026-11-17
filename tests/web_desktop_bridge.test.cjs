@@ -247,3 +247,91 @@ test('desktop.js bridges companion events, quick messages, and open-chat in main
     assert.equal(dispatched[0].type, 'navora:pet-config-sync');
     assert.deepEqual(JSON.parse(JSON.stringify(dispatched[0].detail)), { enabled: false });
 });
+
+test('desktop.js confirms before update install when busy or draft exists and shows log/manual actions on error', () => {
+    const code = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/core/desktop.js'), 'utf8');
+    let installCalls = 0;
+    let logCalls = 0;
+    const openedUrls = [];
+    const confirmCalls = [];
+    const handlers = {};
+    const bodyEl = {
+        children: [],
+        set innerHTML(v) { if (!v) this.children = []; },
+        appendChild(child) { this.children.push(child); },
+    };
+    const bannerEl = {
+        id: 'desktop-update-banner',
+        classList: { _s: new Set(['hidden']), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+    };
+    const sendBtn = { classList: { contains: (c) => c === 'send-btn-cancel' } };
+    const chatInput = { value: '' };
+    let busyMode = true;
+
+    function makeNode() {
+        return {
+            className: '',
+            textContent: '',
+            type: '',
+            children: [],
+            appendChild(c) { this.children.push(c); },
+            addEventListener(ev, fn) { this['on_' + ev] = fn; },
+        };
+    }
+
+    const sandbox = {
+        window: {
+            open: (url) => openedUrls.push(url),
+            electronAPI: {
+                platform: 'win32',
+                onUpdateStatus: (cb) => { handlers.update = cb; return () => {}; },
+                installUpdate: () => { installCalls += 1; },
+                openUpdaterLog: () => { logCalls += 1; },
+                setWindowTheme: () => {},
+            },
+        },
+        document: {
+            documentElement: { classList: { add() {}, contains: () => true } },
+            body: { appendChild() {} },
+            createElement: makeNode,
+            getElementById: (id) => {
+                if (id === 'desktop-update-banner') return bannerEl;
+                if (id === 'dub-title') return { textContent: '' };
+                if (id === 'dub-body') return bodyEl;
+                if (id === 'dub-close') return { addEventListener() {} };
+                if (id === 'send-btn') return busyMode ? sendBtn : { classList: { contains: () => false } };
+                if (id === 'chat-input') return chatInput;
+                return null;
+            },
+            addEventListener() {},
+        },
+        showConfirmDialog: (opts) => confirmCalls.push(opts),
+        t: (k) => 'tr:' + k,
+        GITHUB_RELEASES_URL: 'https://github.com/jialexiao341-glitch/Navora/releases',
+    };
+
+    vm.runInNewContext(code, sandbox);
+
+    handlers.update({ state: 'downloaded', version: '2.3.0', notes: '<p>Bug fixes &amp; speedups</p>' });
+    assert.ok(bodyEl.children.some((c) => /Bug fixes/.test(c.textContent)));
+
+    sandbox.window.desktopTriggerUpdateAction();
+    assert.equal(installCalls, 0);
+    assert.equal(confirmCalls.length, 1);
+    assert.equal(confirmCalls[0].message, 'tr:update_confirm_busy');
+
+    confirmCalls[0].onConfirm();
+    assert.equal(installCalls, 1);
+
+    busyMode = false;
+    sandbox.window.desktopTriggerUpdateAction();
+    assert.equal(installCalls, 2);
+
+    handlers.update({ state: 'error', message: 'Network error', userInitiated: true });
+    const actionsRow = bodyEl.children[bodyEl.children.length - 1];
+    assert.equal(actionsRow.children.length, 2);
+    actionsRow.children[0].on_click();
+    actionsRow.children[1].on_click();
+    assert.equal(logCalls, 1);
+    assert.deepEqual(openedUrls, ['https://github.com/jialexiao341-glitch/Navora/releases']);
+});

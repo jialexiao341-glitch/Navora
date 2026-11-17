@@ -114,6 +114,7 @@
     const updateState = {
         status: null,
         version: '',
+        notes: '',
         percent: 0,
         dismissedVersion: null,
         bannerOpen: false,
@@ -164,10 +165,59 @@
         }
     }
 
-    function _installNow() {
-        if (typeof api.installUpdate === 'function') {
-            void api.installUpdate();
+    function _detectPendingWork() {
+        const sendBtn = typeof document.getElementById === 'function' ? document.getElementById('send-btn') : null;
+        if (sendBtn && sendBtn.classList && typeof sendBtn.classList.contains === 'function' && sendBtn.classList.contains('send-btn-cancel')) {
+            return 'busy';
         }
+        const chatInput = typeof document.getElementById === 'function' ? document.getElementById('chat-input') : null;
+        if (chatInput && typeof chatInput.value === 'string' && chatInput.value.trim()) {
+            return 'draft';
+        }
+        return '';
+    }
+
+    function _installNow() {
+        if (typeof api.installUpdate !== 'function') return;
+        const pending = _detectPendingWork();
+        const proceed = function() { void api.installUpdate(); };
+        if (!pending) {
+            proceed();
+            return;
+        }
+        const title = _tr('update_confirm_title', 'Restart to install update');
+        const message = pending === 'busy'
+            ? _tr('update_confirm_busy', 'A task is currently running. Restarting now to install the update will interrupt it. Continue?')
+            : _tr('update_confirm_draft', 'You have an unsent draft in the input box. Restarting now will discard it. Continue?');
+        if (typeof showConfirmDialog === 'function') {
+            showConfirmDialog({
+                title: title,
+                message: message,
+                okText: _tr('update_install_now', 'Install now'),
+                cancelText: _tr('update_later', 'Later'),
+                tone: 'primary',
+                onConfirm: proceed,
+            });
+            return;
+        }
+        if (typeof window.confirm !== 'function' || window.confirm(message)) {
+            proceed();
+        }
+    }
+
+    function _formatNotesPreview(rawNotes) {
+        const text = String(rawNotes || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!text) return '';
+        return text.length > 160 ? text.slice(0, 159).trimEnd() + '…' : text;
+    }
+
+    function _appendNotesBlock(bodyEl) {
+        const summary = _formatNotesPreview(updateState.notes);
+        if (!summary) return;
+        const notesEl = document.createElement('p');
+        notesEl.className = 'text-[11px] text-slate-500 dark:text-slate-400 leading-snug break-words line-clamp-3';
+        notesEl.textContent = summary;
+        bodyEl.appendChild(notesEl);
     }
 
     function _renderBanner() {
@@ -198,8 +248,32 @@
             retryBtn.addEventListener('click', function() {
                 if (typeof checkForConsoleUpdate === 'function') checkForConsoleUpdate();
             });
+            const actions = document.createElement('div');
+            actions.className = 'flex items-center gap-2';
+            if (typeof api.openUpdaterLog === 'function') {
+                const logBtn = document.createElement('button');
+                logBtn.type = 'button';
+                logBtn.className = 'flex-1 py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-medium cursor-pointer transition-colors';
+                logBtn.textContent = _tr('update_open_log', 'View log');
+                logBtn.addEventListener('click', function() {
+                    void api.openUpdaterLog();
+                });
+                actions.appendChild(logBtn);
+            }
+            const manualBtn = document.createElement('button');
+            manualBtn.type = 'button';
+            manualBtn.className = 'flex-1 py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-medium cursor-pointer transition-colors';
+            manualBtn.textContent = _tr('update_manual_download', 'Manual download');
+            manualBtn.addEventListener('click', function() {
+                const url = typeof GITHUB_RELEASES_URL !== 'undefined'
+                    ? GITHUB_RELEASES_URL
+                    : 'https://github.com/jialexiao341-glitch/Navora/releases';
+                if (typeof window.open === 'function') window.open(url, '_blank', 'noopener,noreferrer');
+            });
+            actions.appendChild(manualBtn);
             bodyEl.appendChild(msg);
             bodyEl.appendChild(retryBtn);
+            bodyEl.appendChild(actions);
             banner.classList.remove('hidden');
             return;
         }
@@ -233,6 +307,7 @@
             btn.textContent = _tr('update_restart', 'Restart to install');
             btn.addEventListener('click', _installNow);
             if (ver.textContent) bodyEl.appendChild(ver);
+            _appendNotesBlock(bodyEl);
             bodyEl.appendChild(btn);
             banner.classList.remove('hidden');
             return;
@@ -246,6 +321,7 @@
                 ver.textContent = 'v' + updateState.version;
                 bodyEl.appendChild(ver);
             }
+            _appendNotesBlock(bodyEl);
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'w-full py-1.5 px-3 rounded-lg bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium cursor-pointer transition-colors';
@@ -297,6 +373,7 @@
             if (st.state === 'available') {
                 if (typeof _updateChecking !== 'undefined') _updateChecking = false;
                 updateState.version = st.version || '';
+                updateState.notes = st.notes || '';
                 const alreadyDismissed = updateState.dismissedVersion && updateState.dismissedVersion === updateState.version;
                 updateState.bannerOpen = st.userInitiated === true || !alreadyDismissed;
                 _renderBanner();
@@ -322,6 +399,7 @@
                 if (typeof _updateChecking !== 'undefined') _updateChecking = false;
                 if (typeof _updateRunning !== 'undefined') _updateRunning = false;
                 updateState.version = st.version || updateState.version;
+                if (st.notes) updateState.notes = st.notes;
                 updateState.bannerOpen = true;
                 _renderBanner();
                 if (typeof _renderUpdateAction === 'function') {
@@ -356,28 +434,43 @@
     // Desktop floating pet overlay <-> main console bridge (only in main console window).
     const isPetOverlay = root.classList && typeof root.classList.contains === 'function' && root.classList.contains('pet-window-mode');
     if (!isPetOverlay && typeof document.addEventListener === 'function') {
-        if (typeof api.petSyncToOverlay === 'function') {
-            ['navora:companion-phase', 'navora:reply-complete', 'navora:focus-state', 'navora:ambient-audio'].forEach(function(type) {
-                document.addEventListener(type, function(e) {
-                    api.petSyncToOverlay({ type: type, detail: e && e.detail ? e.detail : {} });
+        const pushWindowTheme = function() {
+            if (typeof api.setWindowTheme !== 'function' || !root.classList || typeof root.classList.contains !== 'function') return;
+            const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('cow_theme') : '';
+            const pref = saved === 'dark' || saved === 'light'
+                ? saved
+                : (root.classList.contains('dark') ? 'dark' : 'light');
+            void api.setWindowTheme(pref);
+        };
+        pushWindowTheme();
+
+        if (typeof api.petSyncToOverlay === 'function' || typeof api.setWindowTheme === 'function') {
+            if (typeof api.petSyncToOverlay === 'function') {
+                ['navora:companion-phase', 'navora:reply-complete', 'navora:focus-state', 'navora:ambient-audio'].forEach(function(type) {
+                    document.addEventListener(type, function(e) {
+                        api.petSyncToOverlay({ type: type, detail: e && e.detail ? e.detail : {} });
+                    });
                 });
-            });
+            }
             if (typeof MutationObserver === 'function') {
                 const syncThemeLang = function() {
-                    api.petSyncToOverlay({
-                        type: 'appearance',
-                        detail: {
-                            dark: root.classList.contains('dark'),
-                            lang: typeof currentLang !== 'undefined' ? currentLang : (root.getAttribute('lang') || ''),
-                        },
-                    });
+                    pushWindowTheme();
+                    if (typeof api.petSyncToOverlay === 'function') {
+                        api.petSyncToOverlay({
+                            type: 'appearance',
+                            detail: {
+                                dark: root.classList.contains('dark'),
+                                lang: typeof currentLang !== 'undefined' ? currentLang : (root.getAttribute('lang') || ''),
+                            },
+                        });
+                    }
                 };
                 new MutationObserver(syncThemeLang).observe(root, {
                     attributes: true,
                     attributeFilter: ['class', 'style', 'lang'],
                 });
                 const sendBtn = document.getElementById('send-btn');
-                if (sendBtn) {
+                if (sendBtn && typeof api.petSyncToOverlay === 'function') {
                     let lastBusy = sendBtn.classList.contains('send-btn-cancel');
                     new MutationObserver(function() {
                         const busy = sendBtn.classList.contains('send-btn-cancel');

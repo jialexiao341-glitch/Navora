@@ -808,7 +808,13 @@ function _artRenderPreviewBody(item) {
 
 function artOpenSelectedExternally() {
     const item = artSelected;
-    if (item && item.exists) window.open(item.preview_url || item.raw_url, '_blank', 'noopener');
+    if (!item || !item.exists) return;
+    const fallbackUrl = item.preview_url || item.raw_url;
+    if (typeof wsOpenNativePath === 'function') {
+        wsOpenNativePath(item.abs_path, fallbackUrl);
+        return;
+    }
+    window.open(fallbackUrl, '_blank', 'noopener');
 }
 
 /** Open the menu editor with this file placed in it, or pointed out if it is there already. */

@@ -385,9 +385,22 @@ async function wsRenderPreview(meta, target) {
     </div>`;
 }
 
+/** Open a local file in its default desktop app when in Electron; otherwise open the URL in browser. */
+function wsOpenNativePath(absPath, fallbackUrl) {
+    if (absPath && window.electronAPI && typeof window.electronAPI.openPath === 'function') {
+        window.electronAPI.openPath(absPath).then(err => {
+            if (err && fallbackUrl) window.open(fallbackUrl, '_blank', 'noopener');
+        }).catch(() => {
+            if (fallbackUrl) window.open(fallbackUrl, '_blank', 'noopener');
+        });
+        return;
+    }
+    if (fallbackUrl) window.open(fallbackUrl, '_blank', 'noopener');
+}
+
 function openPreviewExternally() {
     if (!wsCurrentFile) return;
-    window.open(wsCurrentFile.preview_url || wsCurrentFile.raw_url, '_blank', 'noopener');
+    wsOpenNativePath(wsCurrentFile.abs_path, wsCurrentFile.preview_url || wsCurrentFile.raw_url);
 }
 
 function downloadPreviewFile() {
@@ -402,11 +415,15 @@ function downloadPreviewFile() {
 
 /** Whether the server can open this machine's file manager for the user. */
 function wsCanReveal() {
+    if (window.electronAPI && typeof window.electronAPI.revealPath === 'function') return true;
     return !!(typeof appConfig !== 'undefined' && appConfig && appConfig.can_reveal_files);
 }
 
 /** Show a file in the system file manager. Resolves when the OS was asked to. */
 function wsRevealPath(path) {
+    if (path && window.electronAPI && typeof window.electronAPI.revealPath === 'function') {
+        return window.electronAPI.revealPath(path);
+    }
     return fetch('/api/file/reveal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
