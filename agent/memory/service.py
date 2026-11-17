@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from agent.memory.conversation_store import page_window
 from common.log import logger
+from common.text_search import score_markdown_file, split_search_terms
 
 
 class MemoryService:
@@ -152,6 +153,66 @@ class MemoryService:
         }
 
     # ------------------------------------------------------------------
+    # search — keyword search across memory / dream / evolution files
+    # ------------------------------------------------------------------
+    def search(self, query: str = "", category: str = "all", limit: int = 30) -> dict:
+        """Search memory, dream, and evolution Markdown files by keyword."""
+        limit = max(1, min(100, int(limit or 30)))
+        if category == "memory":
+            candidates = self._list_memory_files()
+        elif category == "dream":
+            candidates = self._list_dream_files()
+        elif category == "evolution":
+            candidates = self._list_evolution_files()
+        else:
+            candidates = self._list_memory_files() + self._list_evolution_files()
+
+        terms = split_search_terms(query)
+        results: List[dict] = []
+        for item in candidates:
+            ftype = item["type"]
+            cat = ftype if ftype in ("dream", "evolution") else "memory"
+            try:
+                abs_path = self._resolve_path(item["filename"], cat)
+            except ValueError:
+                continue
+            rel_path = self._to_rel(abs_path)
+            if not terms:
+                results.append({
+                    **item,
+                    "rel_path": rel_path,
+                    "match_count": 0,
+                    "snippets": [],
+                })
+                if len(results) >= limit:
+                    break
+                continue
+
+            scored = score_markdown_file(
+                abs_path,
+                terms,
+                title=item["filename"],
+                rel_path=rel_path,
+            )
+            if scored is None:
+                continue
+            results.append({
+                **item,
+                "rel_path": rel_path,
+                "match_count": scored["match_count"],
+                "snippets": scored["snippets"],
+                "_score": scored["score"],
+            })
+
+        if terms:
+            results.sort(key=lambda r: (r.pop("_score", 0), r["updated_at"]), reverse=True)
+        return {
+            "query": query,
+            "total": len(results),
+            "results": results[:limit],
+        }
+
+    # ------------------------------------------------------------------
     # dispatch — single entry point for protocol messages
     # ------------------------------------------------------------------
     def dispatch(self, action: str, payload: Optional[dict] = None) -> dict:
@@ -188,6 +249,13 @@ class MemoryService:
                     return {"action": action, "code": 400, "message": "filename is required", "payload": None}
                 category = payload.get("category", "memory")
                 result_payload = self.get_content(filename, category=category)
+                return {"action": action, "code": 200, "message": "success", "payload": result_payload}
+
+            elif action == "search":
+                query = str(payload.get("query") or "")
+                category = str(payload.get("category") or "all")
+                limit = int(payload.get("limit") or 30)
+                result_payload = self.search(query=query, category=category, limit=limit)
                 return {"action": action, "code": 200, "message": "success", "payload": result_payload}
 
             else:

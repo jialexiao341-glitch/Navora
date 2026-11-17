@@ -16,12 +16,14 @@ import re
 import asyncio
 import shutil
 import threading
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Iterable
+from typing import Dict, List, Optional, Iterable
 from urllib.parse import quote, unquote
 
 from common.atomic_write import write_text_atomic
 from common.log import logger
+from common.text_search import score_markdown_file, split_search_terms
 from config import conf
 from agent.memory.config import MemoryConfig
 from agent.memory.manager import MemoryManager
@@ -716,6 +718,78 @@ class KnowledgeService:
         }
 
     # ------------------------------------------------------------------
+    # search — full-text search across knowledge markdown documents
+    # ------------------------------------------------------------------
+    def search_documents(self, query: str = "", limit: int = 30) -> dict:
+        """Search knowledge documents by title, path, and Markdown content."""
+        limit = max(1, min(100, int(limit or 30)))
+        if not os.path.isdir(self.knowledge_dir):
+            return {"query": query, "total": 0, "results": []}
+
+        terms = split_search_terms(query)
+        results: List[dict] = []
+
+        for root, dirs, files in os.walk(self.knowledge_dir):
+            dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+            for name in sorted(files):
+                if name.startswith(".") or not name.lower().endswith((".md", ".txt")):
+                    continue
+                full_path = os.path.join(root, name)
+                rel_path = os.path.relpath(full_path, self.knowledge_dir).replace("\\", "/")
+                if not terms and rel_path in self.PROTECTED_FILES:
+                    continue
+                title = self._extract_title(Path(full_path), name[:-3] if name.lower().endswith(".md") else name)
+                try:
+                    mtime = os.path.getmtime(full_path)
+                    updated_at = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                except OSError:
+                    mtime = 0.0
+                    updated_at = ""
+
+                if not terms:
+                    results.append({
+                        "path": rel_path,
+                        "title": title,
+                        "category": posixpath.dirname(rel_path),
+                        "updated_at": updated_at,
+                        "match_count": 0,
+                        "snippets": [],
+                        "_mtime": mtime,
+                    })
+                    continue
+
+                scored = score_markdown_file(
+                    full_path,
+                    terms,
+                    title=title,
+                    rel_path=rel_path,
+                )
+                if scored is None:
+                    continue
+                penalty = -5 if rel_path in self.PROTECTED_FILES else 0
+                results.append({
+                    "path": rel_path,
+                    "title": title,
+                    "category": posixpath.dirname(rel_path),
+                    "updated_at": updated_at,
+                    "match_count": scored["match_count"],
+                    "snippets": scored["snippets"],
+                    "_score": scored["score"] + penalty,
+                    "_mtime": mtime,
+                })
+
+        if terms:
+            results.sort(key=lambda r: (r.pop("_score", 0), r.pop("_mtime", 0.0)), reverse=True)
+        else:
+            results.sort(key=lambda r: r.pop("_mtime", 0.0), reverse=True)
+
+        return {
+            "query": query,
+            "total": len(results),
+            "results": results[:limit],
+        }
+
+    # ------------------------------------------------------------------
     # graph — nodes and links for visualization
     # ------------------------------------------------------------------
     def build_graph(self) -> dict:
@@ -844,6 +918,13 @@ class KnowledgeService:
 
             elif action == "graph":
                 result = self.build_graph()
+                return {"action": action, "code": 200, "message": "success", "payload": result}
+
+            elif action == "search":
+                result = self.search_documents(
+                    query=str(payload.get("query") or ""),
+                    limit=int(payload.get("limit") or 30),
+                )
                 return {"action": action, "code": 200, "message": "success", "payload": result}
 
             elif action == "create_category":

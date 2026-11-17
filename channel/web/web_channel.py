@@ -44,11 +44,11 @@ from channel.web.api.guest import (  # noqa: F401
 from channel.web.api.integrations import IntegrationsHandler  # noqa: F401
 from channel.web.api.knowledge import (  # noqa: F401
     KnowledgeActionHandler, KnowledgeGraphHandler, KnowledgeImportHandler,
-    KnowledgeListHandler, KnowledgeReadHandler,
+    KnowledgeListHandler, KnowledgeReadHandler, KnowledgeSearchHandler,
 )
 from channel.web.api.logs import LogsDownloadHandler, LogsHandler  # noqa: F401
 from channel.web.api.memory import (  # noqa: F401
-    MemoryContentHandler, MemoryHandler,
+    MemoryContentHandler, MemoryHandler, MemorySearchHandler,
 )
 from channel.web.api.menu import MenuHandler  # noqa: F401
 from channel.web.api.models import ModelsHandler  # noqa: F401
@@ -158,8 +158,10 @@ URLS = (
     '/api/skills/upload', 'SkillUploadHandler',
     '/api/memory', 'MemoryHandler',
     '/api/memory/content', 'MemoryContentHandler',
+    '/api/memory/search', 'MemorySearchHandler',
     '/api/knowledge/list', 'KnowledgeListHandler',
     '/api/knowledge/read', 'KnowledgeReadHandler',
+    '/api/knowledge/search', 'KnowledgeSearchHandler',
     '/api/knowledge/graph', 'KnowledgeGraphHandler',
     '/api/knowledge/action', 'KnowledgeActionHandler',
     '/api/knowledge/import', 'KnowledgeImportHandler',

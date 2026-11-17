@@ -1120,6 +1120,16 @@ class WebChannel(ChatChannel):
                             else i18n.t('工作空间文件', 'Workspace file')
                         )
                         file_refs.append(f"[{label}: {fpath}]")
+                    elif ftype == "knowledge_ref":
+                        title = str(att.get("file_name") or "").strip()
+                        label = i18n.t('知识库文档', 'Knowledge document')
+                        if title and title != os.path.basename(fpath):
+                            file_refs.append(f"[{label}: {title} (knowledge/{fpath})]")
+                        else:
+                            file_refs.append(f"[{label}: knowledge/{fpath}]")
+                    elif ftype == "memory_ref":
+                        label = i18n.t('记忆文件', 'Memory file')
+                        file_refs.append(f"[{label}: {fpath}]")
                     elif ftype == "image":
                         file_refs.append(f"[{i18n.t('图片', 'Image')}: {fpath}]")
                     elif ftype == "video":

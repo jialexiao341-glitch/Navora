@@ -167,3 +167,24 @@ class KnowledgeImportHandler:
         except Exception as e:
             logger.error(f"[WebChannel] Knowledge import error: {e}", exc_info=True)
             return json.dumps({"status": "error", "code": 500, "message": str(e), "payload": None})
+
+
+class KnowledgeSearchHandler:
+    def GET(self):
+        _require_auth()
+        web.header('Content-Type', 'application/json; charset=utf-8')
+        try:
+            from agent.knowledge.service import KnowledgeService
+            params = web.input(q='', limit='30', agent_id='')
+            try:
+                limit = max(1, min(100, int(params.limit)))
+            except (TypeError, ValueError):
+                limit = 30
+            svc = KnowledgeService(
+                _get_workspace_root(agent_id=_request_agent_id(params))
+            )
+            result = svc.search_documents(query=params.q, limit=limit)
+            return json.dumps({"status": "success", **result}, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[WebChannel] Knowledge search error: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
