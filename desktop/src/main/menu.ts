@@ -4,7 +4,7 @@ import { loadAppConfig } from './themes'
 
 const isMac = process.platform === 'darwin'
 const SKILL_HUB_URL = 'https://skills.cowagent.ai/'
-const DEFAULT_DOCS_URL = 'https://docs.cowagent.ai'
+const DEFAULT_DOCS_URL = 'https://github.com/jialexiao341-glitch/Navora#readme'
 
 // Send a menu-triggered action to the renderer (e.g. new chat, open settings).
 function emit(win: BrowserWindow | null, action: string) {
