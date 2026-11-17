@@ -97,7 +97,7 @@ test('inward direction and move distance clamp prevent walking into screen walls
 
 test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and hover/quick-chat markup',()=>{
  const {
-  petSafePlace,petSnapTarget,petTaskStatus,petFocusReaction,petAmbientReaction,petClickLine,petFormatReplyPreview
+  petSafePlace,petSnapTarget,petTaskStatus,petFocusReaction,petAmbientReaction,petClickLine,petFormatReplyPreview,petOverlayShouldIgnoreMouse
  }=require('../channel/web/static/js/core/indesktop-pet.js');
 
  const composer={left:200,top:620,right:900,bottom:740};
@@ -126,10 +126,25 @@ test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and 
  const html=fs.readFileSync(path.join(__dirname,'../channel/web/templates/layout/ambient-player.html'),'utf8');
  assert.ok(!html.includes('ambient-pet-tab'));
  assert.ok(!html.includes('ambient-pet-view'));
- for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','pet-reset-pos','ambient-pet-restore','pet-passthrough','pet-sound','shenshen','doro']) {
+ for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','pet-reset-pos','ambient-pet-restore','pet-passthrough','pet-desktop-window','pet-sound','shenshen','doro','checkin','inspire','compliment']) {
   assert.ok(html.includes(id),id);
  }
  for(const removed of ['xiaoya','lanlan','paopao','momo']) {
   assert.ok(!html.includes(removed),removed);
  }
+
+ // Desktop overlay hit-testing rules
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: true, passthrough: false, hitPet: false }), true);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: true, passthrough: false, hitPet: true }), false);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: true, passthrough: true, hitPet: true }), true);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: true, passthrough: true, hitPanel: true }), false);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: true, passthrough: true, hitQuickChat: true }), false);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: true, passthrough: true, hitBubble: true }), false);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: false, dragging: true }), false);
+ assert.equal(petOverlayShouldIgnoreMouse({ enabled: false, hitPet: true }), true);
+
+ const petHtml = fs.readFileSync(path.join(__dirname, '../channel/web/pet.html'), 'utf8');
+ assert.ok(petHtml.includes('pet-window-mode'));
+ assert.ok(petHtml.includes('templates/layout/ambient-player.html'));
+ assert.ok(petHtml.includes('indesktop-pet.js'));
 });

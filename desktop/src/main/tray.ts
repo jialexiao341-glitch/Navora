@@ -6,6 +6,8 @@ interface TrayDeps {
   getWindow: () => BrowserWindow | null
   // Colored icon used on Windows/Linux trays.
   iconPath?: string
+  // Called when the user toggles the floating desktop pet from the tray.
+  onTogglePet?: () => void
   // Called when the user picks "Quit" so the app can fully exit.
   onQuit: () => void
 }
@@ -13,7 +15,7 @@ interface TrayDeps {
 // Build a system tray icon with a minimal menu (Windows/Linux only — macOS
 // uses the Dock instead). Lets users restore the window after closing it to the
 // background and start a new chat quickly.
-export function createTray({ getWindow, iconPath, onQuit }: TrayDeps): Tray | null {
+export function createTray({ getWindow, iconPath, onTogglePet, onQuit }: TrayDeps): Tray | null {
   if (tray) return tray
   if (!iconPath) return null
 
@@ -33,7 +35,7 @@ export function createTray({ getWindow, iconPath, onQuit }: TrayDeps): Tray | nu
     win.focus()
   }
 
-  const contextMenu = Menu.buildFromTemplate([
+  const template: Electron.MenuItemConstructorOptions[] = [
     { label: `Show ${app.name}`, click: showWindow },
     {
       label: 'New Chat',
@@ -42,9 +44,13 @@ export function createTray({ getWindow, iconPath, onQuit }: TrayDeps): Tray | nu
         getWindow()?.webContents.send('menu-action', 'new-chat')
       },
     },
-    { type: 'separator' },
-    { label: 'Quit', click: onQuit },
-  ])
+  ]
+  if (onTogglePet) {
+    template.push({ label: 'Desktop Pet', click: onTogglePet })
+  }
+  template.push({ type: 'separator' }, { label: 'Quit', click: onQuit })
+
+  const contextMenu = Menu.buildFromTemplate(template)
   tray.setContextMenu(contextMenu)
 
   // Single click restores the window (common Windows/Linux behavior).

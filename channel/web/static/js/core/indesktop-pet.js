@@ -118,11 +118,39 @@ function petClickLine(character, random = Math.random, tr = null) {
     const isEn = typeof tr === 'function' && tr('pet_size_sm', '小') === 'Small';
     const banks = {
         doro: isEn
-            ? ['Doro is cheering for you!', 'Want an orange? 🍊', 'Hehe~ what shall we do next?', 'Guarding your workspace!']
-            : ['Doro 在给你加油哦！', '要来个橘子吗？🍊', '嘿嘿~ 接下来要做什么呀？', '有我在看着工作区呢！'],
+            ? [
+                'Doro is cheering for you!',
+                'Want an orange? 🍊',
+                'Hehe~ what shall we do next?',
+                'Guarding your workspace!',
+                'Sip some water and take a tiny stretch~',
+                'Doro’s ears are perked and ready!',
+            ]
+            : [
+                'Doro 在给你加油哦！',
+                '要来个橘子吗？🍊',
+                '嘿嘿~ 接下来要做什么呀？',
+                '有我在看着工作区呢！',
+                '喝口水伸个懒腰，状态会更好~',
+                'Doro 的雷达已经竖起来啦！',
+            ],
         shenshen: isEn
-            ? ['Hey! That tickles~', 'Ready whenever you are!', 'Need a hand with something?', 'Staying right beside you.']
-            : ['喂~ 别乱戳人家啦！', '随时待命，有什么需要尽管说！', '要一起聊点什么吗？', '我一直都在旁边陪着你哦~'],
+            ? [
+                'Hey! That tickles~',
+                'Ready whenever you are!',
+                'Need a hand with something?',
+                'Staying right beside you.',
+                'Press Alt+P anytime if a thought pops up~',
+                'You’re doing great—one step at a time!',
+            ]
+            : [
+                '喂~ 别乱戳人家啦！',
+                '随时待命，有什么需要尽管说！',
+                '要一起聊点什么吗？',
+                '我一直都在旁边陪着你哦~',
+                '有灵感的话随时按 Alt+P 叫我！',
+                '一步一步来，今天也在稳稳推进呢~',
+            ],
     };
     const bank = banks[character] || banks.shenshen;
     return bank[Math.floor(random() * bank.length)] || bank[0];
@@ -173,11 +201,18 @@ function petFormatReplyPreview(rawText, speakerName = '', maxLen = 96) {
     const body = cleaned.length > bodyMax ? cleaned.slice(0, bodyMax - 1).trimEnd() + '…' : cleaned;
     return `${prefix}${body}`;
 }
+function petOverlayShouldIgnoreMouse(hit = {}) {
+    if (hit.dragging) return false;
+    if (hit.hitPanel || hit.hitQuickChat || hit.hitBubble) return false;
+    if (!hit.enabled) return true;
+    if (hit.hitPet && !hit.passthrough) return false;
+    return true;
+}
 if (typeof module !== 'undefined') {
     module.exports = {
         petNextAction, petBounds, petSafePlace, petSnapTarget, petTaskStatus, doroTaskTrack, petFrameIndex,
         sampleMoveCurve, petShouldFlip, petChooseMoveDirection, petPlannedMoveDistance,
-        petClickLine, petFocusReaction, petAmbientReaction, petFormatReplyPreview
+        petClickLine, petFocusReaction, petAmbientReaction, petFormatReplyPreview, petOverlayShouldIgnoreMouse
     };
 }
 if (typeof document !== 'undefined') (async () => {
@@ -197,6 +232,11 @@ if (typeof document !== 'undefined') (async () => {
     const canvas = root.querySelector('canvas'), context = canvas.getContext('2d');
     const characterSelect = document.getElementById('pet-character');
     const passthroughEl = document.getElementById('pet-passthrough'), soundEl = document.getElementById('pet-sound');
+    const desktopWinWrap = document.getElementById('pet-desktop-window-wrap');
+    const desktopWinEl = document.getElementById('pet-desktop-window');
+    const isPetOverlayWindow = document.documentElement.classList.contains('pet-window-mode');
+    const electronApi = typeof window !== 'undefined' ? window.electronAPI : null;
+    const hasDesktopPetShell = Boolean(electronApi && typeof electronApi.petSetDesktopMode === 'function');
     const frameCache = new Map(), videoBlobCache = new Map();
     const MAX_FRAME_CACHE = 12, MAX_VIDEO_CACHE = 10;
     let moveStrides = {};
@@ -209,25 +249,111 @@ if (typeof document !== 'undefined') (async () => {
         }
         return fallback;
     };
-    let config = { enabled: true, size: 320, roam: true, locked: false, passthrough: false, sound: true, character: 'shenshen', x: null, y: null };
-    try { Object.assign(config, JSON.parse(localStorage.getItem('navora_indesktop_pet_v1') || '{}')); } catch (_) {}
-    config.size = [240, 320, 400, 480].includes(config.size) ? config.size : 320;
-    config.character = config.character === 'doro' ? 'doro' : 'shenshen';
-    config.passthrough = Boolean(config.passthrough);
-    config.sound = config.sound !== false;
+    const STORAGE_KEY = 'navora_indesktop_pet_v1';
+    let config = {
+        enabled: true, size: 320, roam: true, locked: false, passthrough: false, sound: true,
+        character: 'shenshen', desktopWindow: hasDesktopPetShell, x: null, y: null,
+    };
+    function readStoredConfig() {
+        let stored = {};
+        try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (_) {}
+        const nextSize = [240, 320, 400, 480].includes(stored.size) ? stored.size : 320;
+        const nextChar = stored.character === 'doro' ? 'doro' : 'shenshen';
+        config.enabled = stored.enabled !== false;
+        config.size = nextSize;
+        config.roam = stored.roam !== false;
+        config.locked = Boolean(stored.locked);
+        config.passthrough = Boolean(stored.passthrough);
+        config.sound = stored.sound !== false;
+        config.character = nextChar;
+        config.desktopWindow = hasDesktopPetShell ? (stored.desktopWindow !== false) : false;
+        if (isPetOverlayWindow) {
+            config.x = Number.isFinite(stored.desktopX) ? stored.desktopX : null;
+            config.y = Number.isFinite(stored.desktopY) ? stored.desktopY : null;
+        } else {
+            config.x = Number.isFinite(stored.x) ? stored.x : null;
+            config.y = Number.isFinite(stored.y) ? stored.y : null;
+        }
+    }
+    readStoredConfig();
 
     let manifest, pools, current = 0, generation = 0, drag = null, velocity = null, last = 0;
     let activeMove = null, gapTimer = null, lastActionGroup = 'idle', sleeping = false, manualSleep = false, working = false;
     let focusState = { running: false, mode: 'work' }, audioState = { musicPlaying: false, soundKind: '' };
     let phase = 'thinking', typing = false, typingTimer = null, bubbleTimer = null, stickyBubble = false, pendingVisibilityBubble = false;
     let hoverCloseTimer = null, clickTimer = null, inactivityTimer = null, lastTapAt = 0, sfxCtx = null;
+    let lastIgnoreMouse = null;
     const INACTIVITY_SLEEP_MS = 90000;
 
-    const save = () => { try { localStorage.setItem('navora_indesktop_pet_v1', JSON.stringify(config)); } catch (_) {} };
+    const save = () => {
+        try {
+            let stored = {};
+            try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (_) {}
+            const payload = {
+                ...stored,
+                enabled: config.enabled,
+                size: config.size,
+                roam: config.roam,
+                locked: config.locked,
+                passthrough: config.passthrough,
+                sound: config.sound,
+                character: config.character,
+                desktopWindow: config.desktopWindow,
+            };
+            if (isPetOverlayWindow) {
+                payload.desktopX = config.x;
+                payload.desktopY = config.y;
+            } else {
+                payload.x = config.x;
+                payload.y = config.y;
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (_) {}
+    };
+    const isLocalPetVisible = () => config.enabled && (!hasDesktopPetShell || !config.desktopWindow || isPetOverlayWindow);
+    const syncOverlayMouse = (clientX = null, clientY = null) => {
+        if (!isPetOverlayWindow || !electronApi || typeof electronApi.petSetIgnoreMouse !== 'function') return;
+        let hitPet = false, hitPanel = false, hitQuickChat = false, hitBubble = false;
+        if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+            const el = document.elementFromPoint(clientX, clientY);
+            if (el) {
+                hitPet = Boolean(root && root.contains(el));
+                hitPanel = Boolean(sidePanel && !sidePanel.hidden && sidePanel.contains(el));
+                hitQuickChat = Boolean(quickChat && !quickChat.hidden && quickChat.contains(el));
+                hitBubble = Boolean(bubble && !bubble.hidden && bubble.contains(el));
+            }
+        }
+        const ignore = petOverlayShouldIgnoreMouse({
+            enabled: config.enabled,
+            passthrough: config.passthrough,
+            dragging: Boolean(drag),
+            hitPet,
+            hitPanel,
+            hitQuickChat,
+            hitBubble,
+        });
+        if (ignore !== lastIgnoreMouse) {
+            lastIgnoreMouse = ignore;
+            electronApi.petSetIgnoreMouse(ignore);
+        }
+    };
+    const syncDesktopModeToShell = () => {
+        if (hasDesktopPetShell) {
+            void electronApi.petSetDesktopMode({
+                desktopWindow: Boolean(config.desktopWindow),
+                enabled: Boolean(config.enabled),
+            });
+        }
+    };
+    const broadcastConfigSync = (patch = {}) => {
+        if (hasDesktopPetShell && typeof electronApi.petNotifyConfigChanged === 'function') {
+            electronApi.petNotifyConfigChanged(patch);
+        }
+    };
     const pick = list => list && list.length ? list[Math.floor(Math.random() * list.length)] : null;
 
     function playPetSfx(kind) {
-        if (!config.sound || document.hidden || reduce.matches) return;
+        if (!config.sound || !isLocalPetVisible() || document.hidden || reduce.matches) return;
         try {
             const Ctx = window.AudioContext || window.webkitAudioContext;
             if (!Ctx) return;
@@ -253,6 +379,7 @@ if (typeof document !== 'undefined') (async () => {
     }
 
     function getObstacles() {
+        if (isPetOverlayWindow) return [];
         const list = [];
         const addEl = el => {
             if (!el || el.hidden) return;
@@ -297,6 +424,7 @@ if (typeof document !== 'undefined') (async () => {
     }
 
     function getDockSurface() {
+        if (isPetOverlayWindow) return null;
         const composer = document.getElementById('composer-card');
         if (!composer) return null;
         const rect = composer.getBoundingClientRect();
@@ -337,14 +465,23 @@ if (typeof document !== 'undefined') (async () => {
 
     function showBubble(text, { sticky = false, duration = 4500 } = {}) {
         clearTimeout(bubbleTimer);
-        if (!text || !config.enabled || sleeping) { bubble.hidden = true; stickyBubble = false; return; }
+        if (!text || !isLocalPetVisible() || sleeping) {
+            bubble.hidden = true;
+            stickyBubble = false;
+            syncOverlayMouse();
+            return;
+        }
         bubble.textContent = text;
         bubble.hidden = false;
         stickyBubble = sticky;
         positionFloatingOverlays(config.x ?? 0, config.y ?? 0);
+        syncOverlayMouse();
         if (!sticky && duration > 0) {
             bubbleTimer = setTimeout(() => {
-                if (!stickyBubble && !working && !focusState.running) bubble.hidden = true;
+                if (!stickyBubble && !working && !focusState.running) {
+                    bubble.hidden = true;
+                    syncOverlayMouse();
+                }
             }, duration);
         }
     }
@@ -370,6 +507,9 @@ if (typeof document !== 'undefined') (async () => {
             if (!config.enabled) {
                 restoreWrap.hidden = false;
                 restoreBtn.textContent = tr('pet_restore', '桌宠已隐藏，点击召唤');
+            } else if (hasDesktopPetShell && config.desktopWindow && !isPetOverlayWindow) {
+                restoreWrap.hidden = false;
+                restoreBtn.textContent = tr('pet_restore_desktop', '桌宠正在桌面独立悬浮，点击切回窗口内');
             } else if (config.passthrough) {
                 restoreWrap.hidden = false;
                 restoreBtn.textContent = tr('pet_restore_passthrough', '桌宠已开启鼠标穿透，点击关闭');
@@ -379,23 +519,35 @@ if (typeof document !== 'undefined') (async () => {
         }
     }
 
-    function apply({ avoid = true } = {}) {
+    function apply({ avoid = true, persist = true } = {}) {
+        const visible = isLocalPetVisible();
         root.style.setProperty('--pet-size', Math.min(config.size, innerWidth * 1.5) + 'px');
-        root.hidden = !config.enabled;
-        if (!config.enabled || sleeping) bubble.hidden = true;
-        if (!config.enabled && sidePanel) sidePanel.hidden = true;
-        if (!config.enabled && quickChat) quickChat.hidden = true;
+        root.hidden = !visible;
+        if (!visible) {
+            clearTimeout(gapTimer);
+            generation++;
+            activeMove = null;
+            videos.forEach(v => v.pause());
+        }
+        if (!visible || sleeping) bubble.hidden = true;
+        if (!visible && sidePanel) sidePanel.hidden = true;
+        if (!visible && quickChat) quickChat.hidden = true;
         document.getElementById('pet-size').value = config.size;
         document.getElementById('pet-roam').checked = config.roam;
         document.getElementById('pet-lock').checked = config.locked;
         if (passthroughEl) passthroughEl.checked = config.passthrough;
         if (soundEl) soundEl.checked = config.sound;
+        if (desktopWinWrap && desktopWinEl) {
+            desktopWinWrap.hidden = !hasDesktopPetShell;
+            desktopWinEl.checked = Boolean(config.desktopWindow);
+        }
         const w = root.offsetWidth || Math.round(config.size * 0.46);
         const h = root.offsetHeight || Math.round(config.size * 0.49);
         const defaultX = innerWidth - w - 30, defaultY = innerHeight - h - 30;
         place(Number.isFinite(config.x) ? config.x : defaultX, Number.isFinite(config.y) ? config.y : defaultY, { avoid });
         refreshQuietAndRestore();
-        save();
+        syncOverlayMouse();
+        if (persist) save();
     }
 
     function paths(group) {
@@ -485,7 +637,7 @@ if (typeof document !== 'undefined') (async () => {
 
     function schedulePreload(clips) {
         const run = () => {
-            if (!config.enabled || document.hidden || !clips) return;
+            if (!isLocalPetVisible() || document.hidden || !clips) return;
             for (const clip of clips) {
                 if (!['idle', 'move', 'work', 'work-success', 'work-fail', 'click'].includes(clip.group)
                     && !clip.name?.includes('思考冒泡') && !clip.name?.includes('忙碌点按')) continue;
@@ -498,7 +650,7 @@ if (typeof document !== 'undefined') (async () => {
     }
 
     async function play(clip, loop = false) {
-        if (!clip || !config.enabled || document.hidden) return;
+        if (!clip || !isLocalPetVisible() || document.hidden) return;
         clearTimeout(gapTimer);
         const token = ++generation, index = 1 - current, video = videos[index];
         activeFrames = null; activeMove = null;
@@ -602,7 +754,7 @@ if (typeof document !== 'undefined') (async () => {
 
     function next() {
         clearTimeout(gapTimer);
-        if (!pools || !config.enabled || document.hidden || drag || velocity) return;
+        if (!pools || !isLocalPetVisible() || document.hidden || drag || velocity) return;
         if (sleeping) return play(manifest.find(a => a.path === 'sleep') || pick(manifest.filter(a => a.name.includes('沉眠') || a.name.includes('睡觉'))) || pools.idle[0], true);
         if (working) return play(workClip(), true);
         if (focusState.running) return play(focusClip() || pools.idle[0], true);
@@ -623,12 +775,13 @@ if (typeof document !== 'undefined') (async () => {
         if (!sidePanel) return;
         clearTimeout(hoverCloseTimer);
         if (show) {
-            if (!config.enabled || drag) return;
+            if (!isLocalPetVisible() || drag) return;
             sidePanel.hidden = false;
             positionFloatingOverlays(config.x ?? 0, config.y ?? 0);
         } else {
             sidePanel.hidden = true;
         }
+        syncOverlayMouse();
     }
     function scheduleHideSidePanel() {
         clearTimeout(hoverCloseTimer);
@@ -667,21 +820,37 @@ if (typeof document !== 'undefined') (async () => {
             wakeUp({ forceManual: true });
             activeMove = null;
             positionFloatingOverlays(config.x ?? 0, config.y ?? 0);
+            if (isPetOverlayWindow && electronApi && typeof electronApi.petSetIgnoreMouse === 'function') {
+                lastIgnoreMouse = false;
+                electronApi.petSetIgnoreMouse(false);
+            }
+            if (isPetOverlayWindow && electronApi && typeof electronApi.petSetFocusable === 'function') {
+                electronApi.petSetFocusable(true);
+            }
             quickInput.focus();
+        } else {
+            if (isPetOverlayWindow && electronApi && typeof electronApi.petSetFocusable === 'function') {
+                electronApi.petSetFocusable(false);
+            }
+            syncOverlayMouse();
         }
     }
     function submitQuickMessage() {
         if (!quickInput) return;
         const text = quickInput.value.trim();
         if (!text) return;
-        const mainInput = document.getElementById('chat-input');
-        if (mainInput && typeof sendMessage === 'function') {
-            const savedDraft = mainInput.value;
-            mainInput.value = text;
-            sendMessage();
-            if (savedDraft) {
-                mainInput.value = savedDraft;
-                mainInput.dispatchEvent(new Event('input', { bubbles: true }));
+        if (isPetOverlayWindow && electronApi && typeof electronApi.petSendQuickMessage === 'function') {
+            void electronApi.petSendQuickMessage(text);
+        } else {
+            const mainInput = document.getElementById('chat-input');
+            if (mainInput && typeof sendMessage === 'function') {
+                const savedDraft = mainInput.value;
+                mainInput.value = text;
+                sendMessage();
+                if (savedDraft) {
+                    mainInput.value = savedDraft;
+                    mainInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             }
         }
         quickInput.value = '';
@@ -700,6 +869,12 @@ if (typeof document !== 'undefined') (async () => {
     if (quickClose) quickClose.onclick = () => toggleQuickChat(false);
 
     function openChat() {
+        if (isPetOverlayWindow && electronApi && typeof electronApi.petOpenMainChat === 'function') {
+            void electronApi.petOpenMainChat();
+            toggleQuickChat(false);
+            showSidePanel(false);
+            return;
+        }
         if (typeof navigateTo === 'function') navigateTo('chat');
         document.getElementById('chat-input')?.focus();
         toggleQuickChat(false);
@@ -718,31 +893,52 @@ if (typeof document !== 'undefined') (async () => {
         if (!working && !focusState.running) showBubble(petClickLine(config.character, Math.random, tr), { duration: 4000 });
     }
 
-    // Restore bar in flower panel (only shown when pet is hidden or click-through)
+    // Restore bar in flower panel (only shown when pet is hidden, click-through, or floating in desktop window)
     if (restoreBtn) {
         restoreBtn.onclick = () => {
             if (!config.enabled) {
                 config.enabled = true;
                 apply();
+                syncDesktopModeToShell();
+                next();
+            } else if (hasDesktopPetShell && config.desktopWindow && !isPetOverlayWindow) {
+                config.desktopWindow = false;
+                apply();
+                syncDesktopModeToShell();
                 next();
             } else if (config.passthrough) {
                 config.passthrough = false;
                 apply({ avoid: false });
+                broadcastConfigSync({ passthrough: false });
             }
         };
     }
 
-    characterSelect.onchange = () => loadCharacter(characterSelect.value);
-    document.getElementById('pet-size').onchange = e => { config.size = Number(e.target.value); apply(); };
-    document.getElementById('pet-roam').onchange = e => { config.roam = e.target.checked; activeMove = null; save(); };
-    document.getElementById('pet-lock').onchange = e => { config.locked = e.target.checked; activeMove = null; save(); };
+    characterSelect.onchange = () => {
+        loadCharacter(characterSelect.value).then(() => broadcastConfigSync({ character: config.character }));
+    };
+    document.getElementById('pet-size').onchange = e => { config.size = Number(e.target.value); apply(); broadcastConfigSync({ size: config.size }); };
+    document.getElementById('pet-roam').onchange = e => { config.roam = e.target.checked; activeMove = null; save(); broadcastConfigSync({ roam: config.roam }); };
+    document.getElementById('pet-lock').onchange = e => { config.locked = e.target.checked; activeMove = null; save(); broadcastConfigSync({ locked: config.locked }); };
+    if (desktopWinEl) desktopWinEl.onchange = e => {
+        config.desktopWindow = e.target.checked;
+        if (isPetOverlayWindow && !config.desktopWindow) {
+            showSidePanel(false);
+            toggleQuickChat(false);
+        }
+        apply();
+        syncDesktopModeToShell();
+        next();
+    };
     if (passthroughEl) passthroughEl.onchange = e => {
         config.passthrough = e.target.checked;
         if (config.passthrough) showSidePanel(false);
         refreshQuietAndRestore();
+        syncOverlayMouse();
         save();
+        broadcastConfigSync({ passthrough: config.passthrough });
     };
-    if (soundEl) soundEl.onchange = e => { config.sound = e.target.checked; save(); };
+    if (soundEl) soundEl.onchange = e => { config.sound = e.target.checked; save(); broadcastConfigSync({ sound: config.sound }); };
     document.getElementById('pet-sleep').onclick = () => {
         setSleepState(!sleeping, { manual: !sleeping });
         if (!sleeping) scheduleInactivitySleep();
@@ -762,6 +958,7 @@ if (typeof document !== 'undefined') (async () => {
         toggleQuickChat(false);
         generation++; activeMove = null; videos.forEach(v => v.pause());
         apply();
+        syncDesktopModeToShell();
     };
     root.oncontextmenu = e => { e.preventDefault(); showSidePanel(sidePanel ? sidePanel.hidden : false); };
     root.onkeydown = e => {
@@ -770,10 +967,12 @@ if (typeof document !== 'undefined') (async () => {
     };
     window.addEventListener('keydown', e => {
         if (!e.altKey || e.ctrlKey || e.metaKey || e.key.toLowerCase() !== 'p') return;
+        if (hasDesktopPetShell && config.desktopWindow && !isPetOverlayWindow) return;
         e.preventDefault();
         if (!config.enabled) {
             config.enabled = true;
             apply({ avoid: true });
+            syncDesktopModeToShell();
             next();
         }
         toggleQuickChat();
@@ -958,11 +1157,7 @@ if (typeof document !== 'undefined') (async () => {
         }
         if (!sleeping && (!wasWorking || previous !== phase || type === 'done' || type === 'error')) play(workClip(), working);
     }
-    document.addEventListener('navora:companion-phase', e => updateTask(e.detail?.type, e.detail?.tool, e.detail?.speakerName));
-    document.addEventListener('navora:reply-complete', e => updateTask('done', '', e.detail?.speakerName, e.detail?.previewText));
-
-    document.addEventListener('navora:focus-state', e => {
-        const detail = e.detail || {};
+    function handleFocusState(detail = {}) {
         focusState = { running: Boolean(detail.running), mode: detail.mode || 'work' };
         const reaction = petFocusReaction(detail, tr);
         if (detail.completed) {
@@ -980,13 +1175,12 @@ if (typeof document !== 'undefined') (async () => {
             } else {
                 stickyBubble = false;
                 bubble.hidden = true;
+                syncOverlayMouse();
                 next();
             }
         }
-    });
-
-    document.addEventListener('navora:ambient-audio', e => {
-        const detail = e.detail || {};
+    }
+    function handleAmbientAudio(detail = {}) {
         if (detail.source === 'music') audioState.musicPlaying = Boolean(detail.playing);
         if (detail.source === 'sound') audioState.soundKind = detail.playing ? (detail.kind || '') : '';
         const reaction = petAmbientReaction(audioState, tr);
@@ -995,7 +1189,89 @@ if (typeof document !== 'undefined') (async () => {
             const clip = ambientClip();
             if (clip) play(clip);
         }
-    });
+    }
+    function syncOverlayAppearance(detail = {}) {
+        if (!isPetOverlayWindow) return;
+        const dark = typeof detail.dark === 'boolean'
+            ? detail.dark
+            : (localStorage.getItem('cow_theme') === 'dark');
+        document.documentElement.classList.toggle('dark', dark);
+        try {
+            const cached = JSON.parse(localStorage.getItem('cow_theme_cache') || 'null');
+            const state = cached && cached.id === localStorage.getItem('cow_theme_id') && cached[dark ? 'dark' : 'light'];
+            if (state && state.vars) {
+                for (const [name, value] of Object.entries(state.vars)) {
+                    if (name.indexOf('--cw-') === 0) document.documentElement.style.setProperty(name, value);
+                }
+            }
+        } catch (_) {}
+        if (detail.lang && typeof currentLang !== 'undefined' && typeof applyI18n === 'function' && currentLang !== detail.lang) {
+            currentLang = detail.lang;
+            applyI18n();
+        }
+    }
+    function applyRemoteConfigSync(patch = {}) {
+        const prevChar = config.character;
+        readStoredConfig();
+        if (typeof patch.enabled === 'boolean') config.enabled = patch.enabled;
+        if (typeof patch.desktopWindow === 'boolean') config.desktopWindow = patch.desktopWindow;
+        if (typeof patch.size === 'number') config.size = patch.size;
+        if (typeof patch.roam === 'boolean') config.roam = patch.roam;
+        if (typeof patch.locked === 'boolean') config.locked = patch.locked;
+        if (typeof patch.passthrough === 'boolean') config.passthrough = patch.passthrough;
+        if (typeof patch.sound === 'boolean') config.sound = patch.sound;
+        if (patch.character === 'doro' || patch.character === 'shenshen') config.character = patch.character;
+        save();
+        if (config.character !== prevChar) {
+            void loadCharacter(config.character);
+            return;
+        }
+        apply({ avoid: true, persist: false });
+        next();
+    }
+
+    document.addEventListener('navora:companion-phase', e => updateTask(e.detail?.type, e.detail?.tool, e.detail?.speakerName));
+    document.addEventListener('navora:reply-complete', e => updateTask('done', '', e.detail?.speakerName, e.detail?.previewText));
+    document.addEventListener('navora:focus-state', e => handleFocusState(e.detail || {}));
+    document.addEventListener('navora:ambient-audio', e => handleAmbientAudio(e.detail || {}));
+    document.addEventListener('navora:pet-config-sync', e => applyRemoteConfigSync(e.detail || {}));
+
+    if (isPetOverlayWindow && electronApi) {
+        document.addEventListener('mousemove', e => syncOverlayMouse(e.clientX, e.clientY));
+        document.addEventListener('mouseleave', () => syncOverlayMouse());
+        if (typeof electronApi.onPetToggleQuickChat === 'function') {
+            electronApi.onPetToggleQuickChat(() => {
+                if (!config.enabled) {
+                    config.enabled = true;
+                    apply({ avoid: true });
+                    syncDesktopModeToShell();
+                    next();
+                }
+                toggleQuickChat(true);
+            });
+        }
+        if (typeof electronApi.onPetSyncEvent === 'function') {
+            electronApi.onPetSyncEvent(ev => {
+                if (!ev || !ev.type) return;
+                const d = ev.detail || {};
+                if (ev.type === 'navora:companion-phase') updateTask(d.type, d.tool, d.speakerName);
+                else if (ev.type === 'navora:reply-complete') updateTask('done', '', d.speakerName, d.previewText);
+                else if (ev.type === 'navora:focus-state') handleFocusState(d);
+                else if (ev.type === 'navora:ambient-audio') handleAmbientAudio(d);
+                else if (ev.type === 'working-state') {
+                    if (Boolean(d.working) !== working) {
+                        if (d.working) updateTask('reasoning');
+                        else if (!['done', 'error'].includes(phase)) updateTask('cancelled');
+                    }
+                } else if (ev.type === 'appearance') syncOverlayAppearance(d);
+            });
+        }
+        if (typeof electronApi.onPetConfigChanged === 'function') {
+            electronApi.onPetConfigChanged(patch => applyRemoteConfigSync(patch || {}));
+        }
+    } else if (hasDesktopPetShell) {
+        syncDesktopModeToShell();
+    }
 
     const ambientToggle = document.getElementById('ambient-toggle');
     if (ambientToggle) ambientToggle.addEventListener('click', () => setTimeout(() => place(config.x, config.y, { avoid: true }), 20));

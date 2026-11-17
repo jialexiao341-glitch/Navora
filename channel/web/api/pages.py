@@ -58,6 +58,18 @@ class ChatHandler:
         return html
 
 
+class PetHandler:
+    """Lightweight transparent shell for the standalone Electron desktop pet window."""
+
+    def GET(self):
+        web.header('Content-Type', 'text/html; charset=utf-8')
+        web.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        web.header('Pragma', 'no-cache')
+        html = template.render('pet.html')
+        html = html.replace("{{COW_DEFAULT_LANG}}", i18n.get_language())
+        return html
+
+
 class AssetsHandler:
     def GET(self, file_path):  # 修改默认参数
         try:

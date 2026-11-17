@@ -51,4 +51,7 @@
 .dark .ambient-pet-restore button { background:rgb(var(--cw-primary-400) / .16); color:rgb(var(--cw-accent-ink)); }
 
 .indesktop-pet:focus-visible,.pet-settings button:focus-visible,.pet-settings select:focus-visible,.pet-quick-chat button:focus-visible { outline:2px solid rgb(var(--cw-primary-400)); outline-offset:3px; }
+html.pet-window-mode, body.pet-window-mode { background:transparent !important; margin:0; padding:0; width:100vw; height:100vh; overflow:hidden; user-select:none; }
+html.pet-window-mode #ambient-player, html.pet-window-mode #focus-notice { display:none !important; }
+html.pet-window-mode .pet-side-panel, html.pet-window-mode .pet-quick-chat, html.pet-window-mode .pet-task-bubble { user-select:text; }
 @media (prefers-reduced-motion: reduce) { .indesktop-pet,.indesktop-pet video,.indesktop-pet::after { transition:none; } }

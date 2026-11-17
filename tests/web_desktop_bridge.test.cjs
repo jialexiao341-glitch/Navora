@@ -180,3 +180,70 @@ test('desktop.js wires window state, version, menu actions, and update status wh
     assert.equal(launchErr.classList.contains('hidden'), false);
     assert.match(launchErr.textContent, /policy denied/);
 });
+
+test('desktop.js bridges companion events, quick messages, and open-chat in main console', () => {
+    const code = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/core/desktop.js'), 'utf8');
+    const docListeners = {};
+    const dispatched = [];
+    const syncedEvents = [];
+    const handlers = {};
+    const sentMessages = [];
+    const navigated = [];
+    let chatFocused = false;
+    const chatInput = {
+        value: 'unfinished draft',
+        focus() { chatFocused = true; },
+        dispatchEvent() {},
+    };
+
+    const sandbox = {
+        window: {
+            electronAPI: {
+                platform: 'win32',
+                onMenuAction: (cb) => { handlers.menu = cb; return () => {}; },
+                petSyncToOverlay: (ev) => syncedEvents.push(ev),
+                onPetQuickMessage: (cb) => { handlers.petQuick = cb; return () => {}; },
+                onPetConfigChanged: (cb) => { handlers.petConfig = cb; return () => {}; },
+            },
+        },
+        document: {
+            documentElement: {
+                classList: {
+                    add() {},
+                    contains: () => false,
+                },
+                getAttribute: () => 'zh',
+            },
+            addEventListener: (type, cb) => { docListeners[type] = cb; },
+            dispatchEvent: (ev) => { dispatched.push(ev); },
+            getElementById: (id) => (id === 'chat-input' ? chatInput : null),
+        },
+        CustomEvent: function(type, init) { this.type = type; this.detail = init?.detail; },
+        Event: function(type, init) { this.type = type; this.bubbles = Boolean(init?.bubbles); },
+        navigateTo: (v) => navigated.push(v),
+        sendMessage: () => { sentMessages.push(chatInput.value); },
+        currentLang: 'zh',
+    };
+
+    vm.runInNewContext(code, sandbox);
+
+    docListeners['navora:focus-state']({ detail: { running: true, mode: 'work' } });
+    docListeners['navora:reply-complete']({ detail: { speakerName: 'Coder', previewText: 'Done!' } });
+    assert.deepEqual(JSON.parse(JSON.stringify(syncedEvents)), [
+        { type: 'navora:focus-state', detail: { running: true, mode: 'work' } },
+        { type: 'navora:reply-complete', detail: { speakerName: 'Coder', previewText: 'Done!' } },
+    ]);
+
+    handlers.petQuick('hello pet');
+    assert.deepEqual(sentMessages, ['hello pet']);
+    assert.equal(chatInput.value, 'unfinished draft');
+
+    handlers.menu('open-chat');
+    assert.deepEqual(navigated, ['chat']);
+    assert.equal(chatFocused, true);
+
+    handlers.petConfig({ enabled: false });
+    assert.equal(dispatched.length, 1);
+    assert.equal(dispatched[0].type, 'navora:pet-config-sync');
+    assert.deepEqual(JSON.parse(JSON.stringify(dispatched[0].detail)), { enabled: false });
+});

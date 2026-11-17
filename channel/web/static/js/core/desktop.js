@@ -46,6 +46,10 @@
             if (action === 'new-chat') {
                 if (typeof navigateTo === 'function') navigateTo('chat');
                 if (typeof newChat === 'function') newChat();
+            } else if (action === 'open-chat') {
+                if (typeof navigateTo === 'function') navigateTo('chat');
+                const input = document.getElementById('chat-input');
+                if (input && typeof input.focus === 'function') input.focus();
             } else if (action === 'open-settings') {
                 if (typeof navigateTo === 'function') navigateTo('config');
             } else if (action === 'view-logs') {
@@ -347,5 +351,67 @@
                 }
             }
         });
+    }
+
+    // Desktop floating pet overlay <-> main console bridge (only in main console window).
+    const isPetOverlay = root.classList && typeof root.classList.contains === 'function' && root.classList.contains('pet-window-mode');
+    if (!isPetOverlay && typeof document.addEventListener === 'function') {
+        if (typeof api.petSyncToOverlay === 'function') {
+            ['navora:companion-phase', 'navora:reply-complete', 'navora:focus-state', 'navora:ambient-audio'].forEach(function(type) {
+                document.addEventListener(type, function(e) {
+                    api.petSyncToOverlay({ type: type, detail: e && e.detail ? e.detail : {} });
+                });
+            });
+            if (typeof MutationObserver === 'function') {
+                const syncThemeLang = function() {
+                    api.petSyncToOverlay({
+                        type: 'appearance',
+                        detail: {
+                            dark: root.classList.contains('dark'),
+                            lang: typeof currentLang !== 'undefined' ? currentLang : (root.getAttribute('lang') || ''),
+                        },
+                    });
+                };
+                new MutationObserver(syncThemeLang).observe(root, {
+                    attributes: true,
+                    attributeFilter: ['class', 'style', 'lang'],
+                });
+                const sendBtn = document.getElementById('send-btn');
+                if (sendBtn) {
+                    let lastBusy = sendBtn.classList.contains('send-btn-cancel');
+                    new MutationObserver(function() {
+                        const busy = sendBtn.classList.contains('send-btn-cancel');
+                        if (busy === lastBusy) return;
+                        lastBusy = busy;
+                        api.petSyncToOverlay({ type: 'working-state', detail: { working: busy } });
+                    }).observe(sendBtn, { attributes: true, attributeFilter: ['class'] });
+                }
+            }
+        }
+
+        if (typeof api.onPetQuickMessage === 'function') {
+            api.onPetQuickMessage(function(text) {
+                if (!text || typeof sendMessage !== 'function') return;
+                const mainInput = document.getElementById('chat-input');
+                if (!mainInput) return;
+                const savedDraft = mainInput.value;
+                mainInput.value = text;
+                sendMessage();
+                if (savedDraft) {
+                    mainInput.value = savedDraft;
+                    if (typeof Event === 'function' && typeof mainInput.dispatchEvent === 'function') {
+                        mainInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            });
+        }
+
+        if (typeof api.onPetConfigChanged === 'function') {
+            api.onPetConfigChanged(function(patch) {
+                if (typeof CustomEvent === 'function' && typeof document.dispatchEvent === 'function') {
+                    document.dispatchEvent(new CustomEvent('navora:pet-config-sync', { detail: patch || {} }));
+                }
+            });
+        }
     }
 })();

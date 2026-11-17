@@ -33,6 +33,9 @@
                 <button type="button" class="sounds-choice leisure-choice" data-leisure="riddle"><i class="fas fa-lightbulb" aria-hidden="true"></i><span><strong data-i18n="leisure_riddle">趣味猜谜</strong><small data-i18n="leisure_riddle_desc">动动脑，猜一个小谜题</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
                 <button type="button" class="sounds-choice leisure-choice" data-leisure="story"><i class="fas fa-book-open" aria-hidden="true"></i><span><strong data-i18n="leisure_story">故事接龙</strong><small data-i18n="leisure_story_desc">一起写一个意想不到的故事</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
                 <button type="button" class="sounds-choice leisure-choice" data-leisure="trivia"><i class="fas fa-star" aria-hidden="true"></i><span><strong data-i18n="leisure_trivia">趣味问答</strong><small data-i18n="leisure_trivia_desc">发现有趣的小知识</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
+                <button type="button" class="sounds-choice leisure-choice" data-leisure="checkin"><i class="fas fa-mug-hot" aria-hidden="true"></i><span><strong data-i18n="leisure_checkin">心情打卡</strong><small data-i18n="leisure_checkin_desc">聊聊今天的状态与收获</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
+                <button type="button" class="sounds-choice leisure-choice" data-leisure="inspire"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i><span><strong data-i18n="leisure_inspire">灵感抽签</strong><small data-i18n="leisure_inspire_desc">抽一个小点子或微行动</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
+                <button type="button" class="sounds-choice leisure-choice" data-leisure="compliment"><i class="fas fa-heart" aria-hidden="true"></i><span><strong data-i18n="leisure_compliment">夸夸充电</strong><small data-i18n="leisure_compliment_desc">给自己来一点温柔鼓励</small></span><i class="fas fa-arrow-right sounds-icon" aria-hidden="true"></i></button>
             </div>
             <p class="leisure-note" data-i18n="leisure_note">话题会填入输入框，确认后由你发送；使用当前模型，可能产生正常费用。</p>
         </div>
@@ -63,6 +66,7 @@
     <header><strong data-i18n="pet_panel_title">桌宠设置</strong><button id="pet-side-close" type="button" aria-label="关闭">×</button></header>
     <label><span data-i18n="pet_character">选择桌宠</span><select id="pet-character"><option value="shenshen" data-i18n="pet_char_shenshen">深深</option><option value="doro" data-i18n="pet_char_doro">Doro</option></select></label>
     <label><span data-i18n="pet_size">显示大小</span><select id="pet-size"><option value="240" data-i18n="pet_size_sm">小</option><option value="320" data-i18n="pet_size_md">标准</option><option value="400" data-i18n="pet_size_lg">大</option><option value="480" data-i18n="pet_size_xl">超大</option></select></label>
+    <label id="pet-desktop-window-wrap" hidden><span data-i18n="pet_desktop_window">系统桌面悬浮窗</span><input id="pet-desktop-window" type="checkbox"></label>
     <label><span data-i18n="pet_roam">自由漫游</span><input id="pet-roam" type="checkbox"></label>
     <label><span data-i18n="pet_lock">锁定位置</span><input id="pet-lock" type="checkbox"></label>
     <label><span data-i18n="pet_passthrough">鼠标穿透</span><input id="pet-passthrough" type="checkbox"></label>

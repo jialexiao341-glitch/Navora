@@ -56,7 +56,7 @@ from channel.web.api.openai_compat import (  # noqa: F401
     OpenAIChatCompletionsHandler, OpenAIModelsHandler,
 )
 from channel.web.api.pages import (  # noqa: F401
-    AssetsHandler, ChatHandler, HealthHandler, RootHandler,
+    AssetsHandler, ChatHandler, HealthHandler, PetHandler, RootHandler,
 )
 from channel.web.api.scheduler import (  # noqa: F401
     SchedulerCreateHandler, SchedulerDeleteHandler, SchedulerHandler,
@@ -99,6 +99,7 @@ from channel.web.core.channel import WebChannel  # noqa: F401
 
 URLS = (
     '/', 'ChatHandler',
+    '/pet', 'PetHandler',
     '/chat', 'RootHandler',
     '/api/health', 'HealthHandler',
     # Guest share visitor pages (/share/<token>) and the owner's share API.

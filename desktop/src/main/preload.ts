@@ -140,6 +140,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('open-session', handler)
   },
 
+  // Local audio playlist picker & reader (ambient player persistence on desktop)
+  selectAudioFiles: () =>
+    ipcRenderer.invoke('select-audio-files') as Promise<Array<{ path: string; name: string }>>,
+  readAudioFile: (filePath: string) =>
+    ipcRenderer.invoke('read-audio-file', filePath) as Promise<{
+      ok: boolean
+      data?: Uint8Array
+      mime?: string
+      error?: string
+    }>,
+
+  // Standalone system-level desktop pet overlay coordination
+  petSetIgnoreMouse: (ignore: boolean) => ipcRenderer.send('pet-set-ignore-mouse', ignore),
+  petSetFocusable: (focusable: boolean) => ipcRenderer.send('pet-set-focusable', focusable),
+  petGetDesktopMode: () =>
+    ipcRenderer.invoke('pet-get-desktop-mode') as Promise<{ desktopWindow: boolean; enabled: boolean }>,
+  petSetDesktopMode: (opts: { desktopWindow?: boolean; enabled?: boolean }) =>
+    ipcRenderer.invoke('pet-set-desktop-mode', opts) as Promise<{ desktopWindow: boolean; enabled: boolean }>,
+  petSendQuickMessage: (text: string) => ipcRenderer.invoke('pet-quick-message', text) as Promise<boolean>,
+  petOpenMainChat: () => ipcRenderer.invoke('pet-open-main-chat') as Promise<boolean>,
+  petSyncToOverlay: (event: { type: string; detail?: unknown }) => ipcRenderer.send('pet-sync-to-overlay', event),
+  petNotifyConfigChanged: (patch: Record<string, unknown>) => ipcRenderer.send('pet-config-changed', patch),
+  onPetQuickMessage: (callback: (text: string) => void) => {
+    const handler = (_event: unknown, text: string) => callback(text)
+    ipcRenderer.on('pet-quick-message', handler)
+    return () => ipcRenderer.removeListener('pet-quick-message', handler)
+  },
+  onPetSyncEvent: (callback: (event: { type: string; detail?: unknown }) => void) => {
+    const handler = (_event: unknown, event: { type: string; detail?: unknown }) => callback(event)
+    ipcRenderer.on('pet-sync-event', handler)
+    return () => ipcRenderer.removeListener('pet-sync-event', handler)
+  },
+  onPetToggleQuickChat: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('pet-toggle-quick-chat', handler)
+    return () => ipcRenderer.removeListener('pet-toggle-quick-chat', handler)
+  },
+  onPetConfigChanged: (callback: (patch: Record<string, unknown>) => void) => {
+    const handler = (_event: unknown, patch: Record<string, unknown>) => callback(patch)
+    ipcRenderer.on('pet-config-changed', handler)
+    return () => ipcRenderer.removeListener('pet-config-changed', handler)
+  },
+
   platform: process.platform,
   // OS UI language (e.g. "zh-CN"), read synchronously so the renderer can pick
   // a default language on first run. Falls back to '' if unavailable.

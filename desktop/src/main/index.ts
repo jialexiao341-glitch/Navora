@@ -10,6 +10,12 @@ import { initUpdater, checkForUpdates, startDownload, quitAndInstall, setUpdateL
 import { setupThemeIPC, loadAppConfig } from './themes'
 import { setupHttpRelayIPC } from './http-relay'
 import {
+  initPetWindowSystem,
+  setPetBackendPort,
+  togglePetFromTray,
+  destroyPetWindow,
+} from './pet-window'
+import {
   setupAppIconIPC,
   applyCachedAppIcon,
   applyCachedAppName,
@@ -628,6 +634,7 @@ async function startBackend() {
     console.log(`[backend] ready on port ${port}`)
     mainWindow?.webContents.send('backend-status', { status: 'ready', port })
     loadWebConsole(port)
+    setPetBackendPort(port)
   })
 
   // The port isn't a constant: pickPort() may land on a fallback when the
@@ -764,6 +771,46 @@ function setupIPC() {
     if (targetPath) shell.showItemInFolder(targetPath)
   })
 
+  const AUDIO_MIME_BY_EXT: Record<string, string> = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.flac': 'audio/flac',
+    '.aac': 'audio/aac',
+    '.opus': 'audio/opus',
+    '.webm': 'audio/webm',
+  }
+  const MAX_AUDIO_FILE_BYTES = 200 * 1024 * 1024
+
+  ipcMain.handle('select-audio-files', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus', 'webm'] }],
+    })
+    if (result.canceled || !result.filePaths.length) return []
+    return result.filePaths.map((p) => ({ path: p, name: path.basename(p) }))
+  })
+
+  ipcMain.handle('read-audio-file', (_event, filePath: string) => {
+    try {
+      if (typeof filePath !== 'string' || !path.isAbsolute(filePath)) {
+        return { ok: false, error: 'invalid-path' }
+      }
+      const ext = path.extname(filePath).toLowerCase()
+      const mime = AUDIO_MIME_BY_EXT[ext]
+      if (!mime) return { ok: false, error: 'unsupported-extension' }
+      const stat = fs.statSync(filePath)
+      if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_AUDIO_FILE_BYTES) {
+        return { ok: false, error: 'invalid-size' }
+      }
+      const data = fs.readFileSync(filePath)
+      return { ok: true, data: new Uint8Array(data), mime }
+    } catch (err) {
+      return { ok: false, error: (err as Error)?.message || 'read-failed' }
+    }
+  })
+
   // Custom window controls (used by Windows frameless titlebar)
   ipcMain.handle('window-minimize', () => mainWindow?.minimize())
   ipcMain.handle('window-maximize', () => {
@@ -856,6 +903,7 @@ function setupIPC() {
     } catch {
       // ignore — proceed with the install regardless
     }
+    destroyPetWindow()
     quitAndInstall()
   })
 
@@ -960,6 +1008,16 @@ app.whenReady().then(async () => {
   setupThemeIPC(() => pythonBackend?.getDataDir() ?? '')
   setupHttpRelayIPC()
   setupAppIconIPC({ getWindow: () => mainWindow, getTray })
+  initPetWindowSystem({
+    getMainWindow: () => mainWindow,
+    showMainWindow: () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    },
+  })
   createWindow()
   buildAppMenu(() => mainWindow)
   // No menu-bar tray on macOS — the Dock + window controls are enough there.
@@ -968,6 +1026,9 @@ app.whenReady().then(async () => {
     createTray({
       getWindow: () => mainWindow,
       iconPath: getIconPath('png'),
+      onTogglePet: () => {
+        togglePetFromTray()
+      },
       onQuit: () => {
         isQuitting = true
         app.quit()
@@ -1013,6 +1074,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true
   saveWindowState()
+  destroyPetWindow()
   destroyTray()
   pythonBackend?.stop()
 })
