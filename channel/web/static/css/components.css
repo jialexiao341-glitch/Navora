@@ -733,6 +733,90 @@ input.cap-input { height: 40px; }
     white-space: nowrap;
 }
 .dark .cap-chip { background: rgba(255,255,255,0.08); color: rgb(var(--cw-slate-200)); border-color: rgba(255,255,255,0.08); }
+.cap-chip-btn {
+    cursor: pointer;
+    background: transparent;
+    color: rgb(var(--cw-slate-500));
+    border-style: dashed;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+.cap-chip-btn:hover { color: rgb(var(--cw-primary-600)); border-color: rgb(var(--cw-primary-400)); }
+.dark .cap-chip-btn { background: transparent; color: rgb(var(--cw-slate-400)); }
+.dark .cap-chip-btn:hover { color: rgb(var(--cw-primary-400)); }
+
+.cap-search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgb(var(--cw-slate-200));
+    background: rgb(var(--cw-slate-50));
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.cap-search-input-wrap:focus-within {
+    border-color: rgb(var(--cw-primary-400));
+    background: #fff;
+}
+.dark .cap-search-input-wrap {
+    border-color: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+}
+.dark .cap-search-input-wrap:focus-within {
+    border-color: rgb(var(--cw-primary-400) / 0.65);
+    background: rgba(255,255,255,0.06);
+}
+.cap-search-icon { font-size: 12px; color: rgb(var(--cw-slate-400)); flex-shrink: 0; }
+.cap-search-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 13px;
+    color: rgb(var(--cw-slate-700));
+}
+.dark .cap-search-input { color: rgb(var(--cw-slate-100)); }
+.cap-search-input::placeholder { color: rgb(var(--cw-slate-400)); }
+.cap-search-meta {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgb(var(--cw-primary-50));
+    color: rgb(var(--cw-accent-ink));
+    flex-shrink: 0;
+}
+.dark .cap-search-meta { background: rgb(var(--cw-primary-400) / 0.16); }
+.cap-search-clear {
+    border: none;
+    background: transparent;
+    color: rgb(var(--cw-slate-400));
+    cursor: pointer;
+    padding: 3px;
+    line-height: 1;
+    border-radius: 6px;
+}
+.cap-search-clear:hover { color: rgb(var(--cw-slate-700)); background: rgb(var(--cw-slate-200) / 0.6); }
+.dark .cap-search-clear:hover { color: rgb(var(--cw-slate-200)); background: rgba(255,255,255,0.1); }
+
+.mcp-card-error {
+    margin-top: 6px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.18);
+    word-break: break-word;
+}
+.dark .mcp-card-error {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.14);
+    border-color: rgba(248, 113, 113, 0.22);
+}
 
 /* Skill upload drop zone */
 .cap-dropzone {

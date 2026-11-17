@@ -7,7 +7,39 @@
 // =====================================================================
 let toolsLoaded = false;
 let toolsExpanded = false;
+let capabilitiesSearchQuery = '';
+const mcpExpandedToolCards = new Set();
 const TOOLS_COLLAPSED_COUNT = 4;
+
+function matchesCapabilityQuery(fields, query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return true;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const haystack = (Array.isArray(fields) ? fields : [fields])
+        .map(v => String(v || ''))
+        .join('\n')
+        .toLowerCase();
+    return tokens.every(tok => haystack.includes(tok));
+}
+
+function filterCapabilityItems(items, query, extractor) {
+    const list = Array.isArray(items) ? items : [];
+    const q = String(query || '').trim();
+    if (!q) return list.slice();
+    return list.filter(item => matchesCapabilityQuery(extractor(item), q));
+}
+
+function formatMcpToolsPreview(tools, expanded = false, limit = 5) {
+    const list = Array.isArray(tools) ? tools.filter(x => x && x.name) : [];
+    if (expanded || list.length <= limit) {
+        return { visibleTools: list, hiddenCount: 0, total: list.length };
+    }
+    return {
+        visibleTools: list.slice(0, limit),
+        hiddenCount: list.length - limit,
+        total: list.length,
+    };
+}
 
 const TOOL_ICONS = {
     bash: 'fa-terminal',
@@ -44,6 +76,19 @@ function bindSkillsConfigUi() {
     const on = (id, evt, fn) => document.getElementById(id)?.addEventListener(evt, fn);
 
     on('tools-toggle-btn', 'click', () => { toolsExpanded = !toolsExpanded; applyToolsCollapse(); });
+    on('capabilities-search', 'input', (e) => {
+        capabilitiesSearchQuery = e.target.value || '';
+        applyCapabilitiesFilter();
+    });
+    on('capabilities-search-clear', 'click', () => {
+        const input = document.getElementById('capabilities-search');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+        capabilitiesSearchQuery = '';
+        applyCapabilitiesFilter();
+    });
 
     on('mcp-add-btn', 'click', () => openMcpEditor());
     on('mcp-editor-cancel', 'click', closeMcpEditor);
@@ -87,16 +132,81 @@ async function postJson(url, body, method) {
 // Built-in tools
 // ---------------------------------------------------------------------
 
+function applyCapabilitiesFilter() {
+    const query = capabilitiesSearchQuery.trim();
+    const clearBtn = document.getElementById('capabilities-search-clear');
+    const metaEl = document.getElementById('capabilities-search-meta');
+    const emptyEl = document.getElementById('capabilities-search-empty');
+    clearBtn?.classList.toggle('hidden', !query);
+
+    let matchedTotal = 0;
+
+    // 1. Built-in tools
+    const toolsList = document.getElementById('tools-list');
+    const toolsSection = document.getElementById('tools-section');
+    let toolsShown = 0;
+    if (toolsList && toolsLoaded) {
+        const cards = Array.from(toolsList.children);
+        cards.forEach((card, i) => {
+            const ok = !query || matchesCapabilityQuery(card.dataset.capSearchText || '', query);
+            if (ok) toolsShown += 1;
+            const visible = query ? ok : (toolsExpanded || i < TOOLS_COLLAPSED_COUNT);
+            card.classList.toggle('hidden', !visible);
+        });
+        matchedTotal += toolsShown;
+        const toggleBtn = document.getElementById('tools-toggle-btn');
+        if (toggleBtn) toggleBtn.classList.toggle('hidden', !!query || cards.length <= TOOLS_COLLAPSED_COUNT);
+        toolsList.classList.toggle('hidden', toolsShown === 0);
+        toolsSection?.classList.toggle('hidden', !!query && toolsShown === 0);
+    } else {
+        toolsSection?.classList.remove('hidden');
+    }
+
+    // 2. MCP servers
+    const mcpList = document.getElementById('mcp-list');
+    const mcpSection = document.getElementById('mcp-section');
+    let mcpShown = 0;
+    if (mcpList && mcpServersCache.length) {
+        Array.from(mcpList.children).forEach(card => {
+            const ok = !query || matchesCapabilityQuery(card.dataset.capSearchText || '', query);
+            card.classList.toggle('hidden', !ok);
+            if (ok) mcpShown += 1;
+        });
+        matchedTotal += mcpShown;
+        mcpList.classList.toggle('hidden', mcpShown === 0);
+        mcpSection?.classList.toggle('hidden', !!query && mcpShown === 0);
+    } else {
+        mcpSection?.classList.toggle('hidden', !!query);
+    }
+
+    // 3. Skills
+    const skillsList = document.getElementById('skills-list');
+    const skillsSection = document.getElementById('skills-section');
+    let skillsShown = 0;
+    if (skillsList && skillsList.children.length) {
+        Array.from(skillsList.children).forEach(card => {
+            const ok = !query || matchesCapabilityQuery(card.dataset.capSearchText || '', query);
+            card.classList.toggle('hidden', !ok);
+            if (ok) skillsShown += 1;
+        });
+        matchedTotal += skillsShown;
+        skillsList.classList.toggle('hidden', skillsShown === 0);
+        skillsSection?.classList.toggle('hidden', !!query && skillsShown === 0);
+    } else if (query && !skillsList?.children.length) {
+        skillsSection?.classList.add('hidden');
+    } else {
+        skillsSection?.classList.remove('hidden');
+    }
+
+    if (metaEl) {
+        metaEl.textContent = t('capabilities_search_matches').replace('{n}', String(matchedTotal));
+        metaEl.classList.toggle('hidden', !query);
+    }
+    emptyEl?.classList.toggle('hidden', !query || matchedTotal > 0);
+}
+
 function applyToolsCollapse() {
-    const listEl = document.getElementById('tools-list');
-    const btn = document.getElementById('tools-toggle-btn');
-    if (!listEl || !btn) return;
-    const cards = Array.from(listEl.children);
-    cards.forEach((card, i) => {
-        card.classList.toggle('hidden', !toolsExpanded && i >= TOOLS_COLLAPSED_COUNT);
-    });
-    const collapsible = cards.length > TOOLS_COLLAPSED_COUNT;
-    btn.classList.toggle('hidden', !collapsible);
+    applyCapabilitiesFilter();
     const label = document.getElementById('tools-toggle-label');
     if (label) {
         const key = toolsExpanded ? 'tools_collapse' : 'tools_show_all';
@@ -128,6 +238,7 @@ function loadToolsSection() {
         tools.forEach(tool => {
             const card = document.createElement('div');
             card.className = 'bg-panel rounded-xl border border-slate-200 dark:border-white/10 p-4 flex items-start gap-3';
+            card.dataset.capSearchText = `${tool.name || ''} ${tool.description || ''}`;
             card.innerHTML = `
                 <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
                     <i class="fas ${getToolIcon(tool.name)} text-blue-500 dark:text-blue-400 text-sm"></i>
@@ -139,8 +250,8 @@ function loadToolsSection() {
             listEl.appendChild(card);
         });
         listEl.classList.remove('hidden');
-        applyToolsCollapse();
         toolsLoaded = true;
+        applyToolsCollapse();
     }).catch(() => showEmpty('tools_load_failed'));
 }
 
@@ -236,8 +347,48 @@ function loadMcpSection() {
         listEl.innerHTML = '';
         mcpServersCache.forEach(server => listEl.appendChild(renderMcpCard(server)));
         listEl.classList.toggle('hidden', mcpServersCache.length === 0);
+        applyCapabilitiesFilter();
         scheduleMcpStatusPoll();
     }).catch(() => showError(t('mcp_load_failed')));
+}
+
+async function reloadMcpServer(name, btn) {
+    if (!name) return;
+    const icon = btn?.querySelector('i');
+    if (icon) icon.classList.add('fa-spin');
+    if (btn) btn.disabled = true;
+    try {
+        const data = await postJson('/api/mcp/servers/reload', { name });
+        if (data.status !== 'success') throw new Error(data.message || t('mcp_save_error'));
+        if (typeof _wsToast === 'function') {
+            _wsToast(t('mcp_reloading').replace('{name}', name));
+        }
+        mcpPollDeadline = 0;
+        loadMcpSection();
+    } catch (err) {
+        if (typeof _wsToast === 'function') _wsToast(err.message || t('mcp_save_error'));
+    } finally {
+        if (icon) icon.classList.remove('fa-spin');
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function toggleMcpServerDisabled(server, switchBtn) {
+    if (!server || !server.name) return;
+    if (switchBtn) switchBtn.disabled = true;
+    try {
+        const nextDisabled = !server.disabled && server.status !== 'disabled';
+        const nextServers = mcpServersCache.map(item => (
+            item.name === server.name
+                ? { ...item, disabled: nextDisabled }
+                : item
+        ));
+        await persistMcpServers(nextServers);
+    } catch (err) {
+        if (typeof _wsToast === 'function') _wsToast(err.message || t('mcp_save_error'));
+    } finally {
+        if (switchBtn) switchBtn.disabled = false;
+    }
 }
 
 /** Saved servers start in the background, so keep refreshing while any is still loading. */
@@ -259,6 +410,22 @@ function scheduleMcpStatusPoll() {
     }, MCP_POLL_INTERVAL_MS);
 }
 
+function renderMcpCardToolsHtml(server) {
+    const tools = Array.isArray(server.tools) ? server.tools.filter(x => x && x.name) : [];
+    if (!tools.length) return '';
+    const expanded = mcpExpandedToolCards.has(server.name);
+    const { visibleTools, hiddenCount, total } = formatMcpToolsPreview(tools, expanded, 5);
+    const chips = visibleTools.map(tool => (
+        `<span class="cap-chip" title="${escapeHtml(tool.description || tool.name)}">${escapeHtml(tool.name)}</span>`
+    )).join('');
+    const toggleChip = hiddenCount > 0
+        ? `<button type="button" data-mcp-tools-toggle class="cap-chip cap-chip-btn">${escapeHtml(t('mcp_tools_more').replace('{n}', String(hiddenCount)))}</button>`
+        : (expanded && total > 5
+            ? `<button type="button" data-mcp-tools-toggle class="cap-chip cap-chip-btn">${escapeHtml(t('mcp_tools_collapse'))}</button>`
+            : '');
+    return `<div class="mt-2 flex flex-wrap gap-1">${chips}${toggleChip}</div>`;
+}
+
 function renderMcpCard(server) {
     const card = document.createElement('div');
     card.className = 'group bg-panel rounded-xl border border-slate-200 dark:border-white/10 p-4 flex items-start gap-3 '
@@ -267,7 +434,17 @@ function renderMcpCard(server) {
     const summary = type === 'stdio'
         ? [server.command, ...(server.args || [])].filter(Boolean).join(' ')
         : (server.url || '');
-    const disabled = server.status === 'disabled';
+    const disabled = server.status === 'disabled' || !!server.disabled;
+    const enabled = !disabled;
+    const tools = Array.isArray(server.tools) ? server.tools.filter(x => x && x.name) : [];
+    const toolSearch = tools.map(tool => `${tool.name || ''} ${tool.description || ''}`).join(' ');
+    card.dataset.capSearchText = `${server.name || ''} ${summary || ''} ${server.error || ''} ${toolSearch}`;
+    const trackClass = enabled ? 'bg-primary-400' : 'bg-slate-200 dark:bg-slate-700';
+    const thumbTranslate = enabled ? 'translate-x-3' : 'translate-x-0.5';
+    const toolCountBadge = (server.status === 'ready' && tools.length > 0)
+        ? `<span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400">${escapeHtml(t('mcp_tools_count').replace('{n}', String(tools.length)))}</span>`
+        : '';
+    const showErrorBanner = (server.status === 'failed' || server.status === 'needs_auth') && server.error;
     card.innerHTML = `
         <div class="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
             <i class="fas fa-plug ${disabled ? 'text-slate-300 dark:text-slate-600' : 'text-amber-500'} text-sm"></i>
@@ -277,7 +454,12 @@ function renderMcpCard(server) {
                 <span class="font-medium text-sm text-slate-700 dark:text-slate-200 truncate font-mono">${escapeHtml(server.name)}</span>
                 <span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400">${escapeHtml(MCP_TRANSPORT_LABELS[type] || type)}</span>
                 <span class="flex-shrink-0 px-1.5 py-0.5 rounded-full text-[10px] ${mcpStatusClass(server.status)}">${escapeHtml(mcpStatusLabel(server.status))}</span>
+                ${toolCountBadge}
                 <span class="flex-1"></span>
+                ${enabled ? `<button type="button" data-mcp-reload title="${escapeHtml(t('mcp_reload'))}"
+                        class="flex-shrink-0 p-1 -my-1 rounded text-slate-300 dark:text-slate-600 hover:text-primary-500 dark:hover:text-primary-400 transition-colors">
+                    <i class="fas fa-rotate-right text-[10px]"></i>
+                </button>` : ''}
                 <button type="button" data-mcp-edit title="${escapeHtml(t('mcp_edit'))}"
                         class="flex-shrink-0 p-1 -my-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-300 transition-colors">
                     <i class="fas fa-pen text-[10px]"></i>
@@ -286,12 +468,34 @@ function renderMcpCard(server) {
                         class="flex-shrink-0 p-1 -my-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                     <i class="fas fa-trash text-[10px]"></i>
                 </button>
+                <button type="button" role="switch" data-mcp-switch aria-checked="${enabled}"
+                        class="relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${trackClass}"
+                        title="${escapeHtml(t(enabled ? 'mcp_disable' : 'mcp_enable'))}">
+                    <span class="inline-block h-3 w-3 mt-0.5 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out ${thumbTranslate}"></span>
+                </button>
             </div>
             <p class="text-xs text-slate-400 dark:text-slate-500 truncate font-mono" title="${escapeHtml(summary)}">${escapeHtml(summary || '--')}</p>
+            ${renderMcpCardToolsHtml(server)}
+            ${showErrorBanner ? `<div class="mcp-card-error" title="${escapeHtml(server.error)}">${escapeHtml(server.error)}</div>` : ''}
         </div>`;
     card.onclick = () => openMcpEditor(server);
+    const reloadBtn = card.querySelector('[data-mcp-reload]');
+    if (reloadBtn) reloadBtn.onclick = (e) => { e.stopPropagation(); reloadMcpServer(server.name, reloadBtn); };
     card.querySelector('[data-mcp-edit]').onclick = (e) => { e.stopPropagation(); openMcpEditor(server); };
     card.querySelector('[data-mcp-delete]').onclick = (e) => { e.stopPropagation(); deleteMcpServer(server.name); };
+    const swBtn = card.querySelector('[data-mcp-switch]');
+    if (swBtn) swBtn.onclick = (e) => { e.stopPropagation(); toggleMcpServerDisabled(server, swBtn); };
+    const toggleToolsBtn = card.querySelector('[data-mcp-tools-toggle]');
+    if (toggleToolsBtn) {
+        toggleToolsBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (mcpExpandedToolCards.has(server.name)) mcpExpandedToolCards.delete(server.name);
+            else mcpExpandedToolCards.add(server.name);
+            const replacement = renderMcpCard(server);
+            card.replaceWith(replacement);
+            applyCapabilitiesFilter();
+        };
+    }
     return card;
 }
 
@@ -1240,6 +1444,7 @@ function loadSkillsSection(highlight) {
             card.dataset.skillDisplayName = sk.display_name || '';
             card.dataset.enabled = sk.enabled ? '1' : '0';
             card.dataset.deletable = sk.deletable ? '1' : '0';
+            card.dataset.capSearchText = `${sk.name || ''} ${sk.display_name || ''} ${sk.display_description || sk.description || ''}`;
             renderSkillCard(card, sk);
             if (fresh.has(sk.name)) {
                 card.classList.add('cap-flash');
@@ -1247,6 +1452,7 @@ function loadSkillsSection(highlight) {
             }
             listEl.appendChild(card);
         });
+        applyCapabilitiesFilter();
     }).catch(() => {});
 }
 
@@ -1257,13 +1463,20 @@ function renderSkillCard(card, sk) {
         ? 'bg-primary-400'
         : 'bg-slate-200 dark:bg-slate-700';
     const thumbTranslate = enabled ? 'translate-x-3' : 'translate-x-0.5';
+    const sourceBadge = sk.deletable === false
+        ? `<span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400">${escapeHtml(t('skill_badge_builtin'))}</span>`
+        : (sk.version
+            ? `<span class="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400">v${escapeHtml(String(sk.version))}</span>`
+            : '');
     card.innerHTML = `
         <div class="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center flex-shrink-0">
             <i class="fas fa-bolt ${iconColor} text-sm"></i>
         </div>
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-                <span class="font-medium text-sm text-slate-700 dark:text-slate-200 truncate flex-1">${escapeHtml(sk.display_name || sk.name)}</span>
+                <span class="font-medium text-sm text-slate-700 dark:text-slate-200 truncate">${escapeHtml(sk.display_name || sk.name)}</span>
+                ${sourceBadge}
+                <span class="flex-1"></span>
                 <button
                     data-skill-edit
                     class="flex-shrink-0 p-1 -mx-1 -mt-1.5 -mb-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-300 transition-colors"
@@ -1365,7 +1578,9 @@ let _skillReadSeq = 0;
 // who reads skills on a narrow window should not have to fold it away again on
 // every visit.
 const SKILL_FILES_PANEL_KEY = 'cow_skill_files_panel';
-let _skillFilesPanelOpen = localStorage.getItem(SKILL_FILES_PANEL_KEY) !== '0';
+let _skillFilesPanelOpen = typeof localStorage !== 'undefined'
+    ? localStorage.getItem(SKILL_FILES_PANEL_KEY) !== '0'
+    : true;
 
 /**
  * A skill is addressed by name, not by path: which directory a name resolves to
@@ -1558,7 +1773,7 @@ function skillRenderBody(doc) {
     applyHighlighting(el);
 }
 
-const skillEditor = createDocEditor({
+const skillEditor = typeof createDocEditor === 'function' ? createDocEditor({
     body: () => document.getElementById('skill-viewer-content'),
     buttons: () => ({
         edit: document.getElementById('skill-btn-edit'),
@@ -1571,7 +1786,7 @@ const skillEditor = createDocEditor({
     canEdit: (doc) => !doc.readonlyKey,
     refusal: skillReadonlyReason,
     onState: (state) => docRenderTitle('skill-viewer-title', skillViewerTitle(), state),
-});
+}) : null;
 
 /**
  * Say in the header why the file on screen cannot be edited, or say nothing.
@@ -2024,5 +2239,13 @@ async function postSkillCreate(formData) {
     closeSkillAdd();
     _wsToast(`${t('skill_new_created')}: ${data.name}`);
     loadSkillsSection([data.name]);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        matchesCapabilityQuery,
+        filterCapabilityItems,
+        formatMcpToolsPreview,
+    };
 }
 
