@@ -24,6 +24,16 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+/** Escape HTML and wrap whitespace-separated query terms with <mark>. */
+function highlightSearchTerms(text, query) {
+    const safe = escapeHtml(String(text || ''));
+    const terms = Array.from(new Set(String(query || '').trim().split(/\s+/).filter(Boolean)));
+    if (!terms.length) return safe;
+    const escapedTerms = terms.map(t => escapeHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const re = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+    return safe.replace(re, '<mark class="bg-amber-200/80 dark:bg-amber-400/30 text-inherit rounded px-0.5">$1</mark>');
+}
+
 function ChannelsHandler_maskSecret(val) {
     if (!val || val.length <= 8) return val;
     return val.slice(0, 4) + '*'.repeat(val.length - 8) + val.slice(-4);

@@ -142,6 +142,7 @@ function loadKnowledgeView(targetPath) {
     switchKnowledgeTab('docs');
     _knowledgeGraphLoaded = false;
     _knowledgeCurrentFile = null;
+    document.getElementById('knowledge-btn-cite')?.classList.add('hidden');
     // The tree about to be drawn decides which document is open, so no editor
     // state may survive into it. Callers that could lose an edit this way ask
     // first, through knowledgeEditor.guard().
@@ -735,8 +736,83 @@ function _countFiles(group) {
     return count;
 }
 
+let _knowledgeSearchTimer = null;
+let _knowledgeSearchSeq = 0;
+
+function clearKnowledgeSearch() {
+    const input = document.getElementById('knowledge-search');
+    if (input) input.value = '';
+    filterKnowledgeTree('');
+}
+
+function citeCurrentKnowledgeToChat() {
+    const doc = knowledgeEditor.current();
+    if (!doc || !doc.path || typeof addCitationAttachment !== 'function') return;
+    addCitationAttachment({
+        file_path: doc.path,
+        file_name: doc.title || doc.path.split('/').pop(),
+        file_type: 'knowledge_ref',
+    });
+    if (typeof navigateTo === 'function') navigateTo('chat');
+    document.getElementById('chat-input')?.focus();
+}
+
 function filterKnowledgeTree(query) {
-    renderKnowledgeTree(_knowledgeTreeData, _knowledgeRootFiles, query);
+    const trimmed = String(query || '').trim();
+    const clearBtn = document.getElementById('knowledge-search-clear');
+    const resultsEl = document.getElementById('knowledge-search-results');
+    const treeEl = document.getElementById('knowledge-tree');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !trimmed);
+    clearTimeout(_knowledgeSearchTimer);
+
+    if (!trimmed) {
+        if (resultsEl) {
+            resultsEl.innerHTML = '';
+            resultsEl.classList.add('hidden');
+        }
+        if (treeEl) treeEl.classList.remove('hidden');
+        renderKnowledgeTree(_knowledgeTreeData, _knowledgeRootFiles, '');
+        return;
+    }
+
+    renderKnowledgeTree(_knowledgeTreeData, _knowledgeRootFiles, trimmed);
+    _knowledgeSearchTimer = setTimeout(() => {
+        const seq = ++_knowledgeSearchSeq;
+        fetch(_kbUrl(`/api/knowledge/search?q=${encodeURIComponent(trimmed)}&limit=30`))
+            .then(r => r.json())
+            .then(data => {
+                if (seq !== _knowledgeSearchSeq || data.status !== 'success' || !resultsEl) return;
+                const items = data.results || [];
+                if (treeEl) treeEl.classList.add('hidden');
+                resultsEl.innerHTML = `<div class="px-2 py-1 text-[11px] font-medium text-slate-400 dark:text-slate-500 flex items-center justify-between"><span>${escapeHtml(t('knowledge_search_results'))}</span><span>${items.length}</span></div>`;
+                if (!items.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'px-2 py-6 text-center text-xs text-slate-400 dark:text-slate-500';
+                    empty.textContent = t('knowledge_search_empty');
+                    resultsEl.appendChild(empty);
+                } else {
+                    items.forEach(item => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'w-full text-left p-2 rounded-lg border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors' + (_knowledgeCurrentFile === item.path ? ' bg-primary-50/70 dark:bg-primary-500/10 border-primary-200 dark:border-primary-500/30' : '');
+                        const snippetsHtml = (item.snippets || []).slice(0, 2).map(sn =>
+                            `<div class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${highlightSearchTerms(sn.text, trimmed)}</div>`
+                        ).join('');
+                        btn.innerHTML = `
+                            <div class="flex items-center gap-1.5">
+                                <i class="fas fa-book text-emerald-500 text-[10px] flex-shrink-0"></i>
+                                <span class="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">${highlightSearchTerms(item.title || item.path, trimmed)}</span>
+                            </div>
+                            <div class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate mt-0.5">${escapeHtml(item.path)}</div>
+                            ${snippetsHtml}`;
+                        btn.onclick = () => openKnowledgeFile(item.path, item.title || item.path);
+                        resultsEl.appendChild(btn);
+                    });
+                }
+                resultsEl.classList.remove('hidden');
+            })
+            .catch(() => {});
+    }, 200);
 }
 
 function resolveKnowledgePath(currentFilePath, relativeHref) {
@@ -819,6 +895,7 @@ function openKnowledgeFile(path, title) {
 
     knowledgeReadDoc(path).then(data => {
         document.getElementById('knowledge-viewer-path').textContent = path;
+        document.getElementById('knowledge-btn-cite')?.classList.remove('hidden');
         document.getElementById('knowledge-content-viewer').classList.remove('hidden');
         knowledgeEditor.open({
             path: path,

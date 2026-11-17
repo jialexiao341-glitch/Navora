@@ -79,6 +79,7 @@ function openMemoryFile(filename, category) {
         if (data.status !== 'success') return;
         document.getElementById('memory-panel-list').classList.add('hidden');
         document.getElementById('memory-panel-viewer').classList.remove('hidden');
+        document.getElementById('memory-btn-cite')?.classList.remove('hidden');
         memoryEditor.open({
             filename: filename,
             // The memory API reports where the file sits under the workspace
@@ -90,9 +91,16 @@ function openMemoryFile(filename, category) {
     }).catch(() => {});
 }
 
+function citeCurrentMemoryToChat() {
+    const doc = memoryEditor.current();
+    if (!doc || typeof citeMemoryToChat !== 'function') return;
+    citeMemoryToChat(doc.relPath || doc.filename, doc.filename);
+}
+
 function closeMemoryViewer() {
     if (!memoryEditor.guard(closeMemoryViewer)) return;
     memoryEditor.forget();
+    document.getElementById('memory-btn-cite')?.classList.add('hidden');
     document.getElementById('memory-panel-viewer').classList.add('hidden');
     document.getElementById('memory-panel-list').classList.remove('hidden');
     // A save changed the size and timestamp the list shows.

@@ -809,8 +809,10 @@ function renderAttachmentPreview() {
         }
         const icon = att.file_type === 'video'
             ? 'fa-film'
+            : (att.file_type === 'knowledge_ref' ? 'fa-book text-emerald-500'
+            : (att.file_type === 'memory_ref' ? 'fa-brain text-purple-500'
             : (att.file_type === 'directory' ? 'fa-folder-tree'
-            : (att.is_dir ? 'fa-folder' : 'fa-file-alt'));
+            : (att.is_dir ? 'fa-folder' : 'fa-file-alt'))));
         const suffix = att.file_type === 'directory' && att.file_count
             ? ` (${att.file_count})`
             : '';

@@ -33,6 +33,19 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="mb-4 relative">
+                                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <input id="memory-search-input" type="text"
+                                           data-i18n-placeholder="memory_search_ph"
+                                           placeholder="搜索记忆、梦境日记与进化记录…"
+                                           oninput="onMemorySearchInput(this.value)"
+                                           class="w-full pl-9 pr-9 py-2 text-sm bg-panel border border-slate-200 dark:border-white/10 rounded-xl text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary-400/60">
+                                    <button id="memory-search-clear" type="button" onclick="clearMemorySearch()"
+                                            class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1">
+                                        <i class="fas fa-xmark text-xs"></i>
+                                    </button>
+                                </div>
+                                <div id="memory-search-results" class="hidden space-y-2.5"></div>
                                 <div id="memory-empty" class="flex flex-col items-center justify-center py-20">
                                     <div class="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center mb-4">
                                         <i class="fas fa-brain text-purple-400 text-xl"></i>
@@ -70,6 +83,11 @@
                                     </button>
                                     <h2 id="memory-viewer-title"
                                         class="flex-1 min-w-0 text-base font-semibold text-slate-800 dark:text-slate-100 font-mono truncate"></h2>
+                                    <button id="memory-btn-cite" onclick="citeCurrentMemoryToChat()"
+                                            class="doc-action-btn hidden">
+                                        <i class="fas fa-at text-xs"></i>
+                                        <span data-i18n="cite_to_chat">引用到对话</span>
+                                    </button>
                                     <button id="memory-btn-edit" onclick="memoryEditor.start()"
                                             class="doc-action-btn hidden">
                                         <i class="fas fa-pen text-xs"></i>

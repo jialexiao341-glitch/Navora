@@ -1120,6 +1120,20 @@ function addWorkspaceRefAttachment(entry) {
     renderAttachmentPreview();
 }
 
+function addCitationAttachment(entry) {
+    const filePath = entry && entry.file_path ? String(entry.file_path) : '';
+    const fileType = entry && entry.file_type === 'memory_ref' ? 'memory_ref' : 'knowledge_ref';
+    if (!filePath) return;
+    if (pendingAttachments.some(a => a.file_type === fileType && a.file_path === filePath)) return;
+    pendingAttachments.push({
+        file_path: filePath,
+        file_name: entry.file_name || filePath.split('/').pop(),
+        file_type: fileType,
+        is_dir: false,
+    });
+    renderAttachmentPreview();
+}
+
 function initWorkspaceDropTarget() {
     const target = document.getElementById('chat-main');
     if (!target) return;
@@ -1153,9 +1167,10 @@ function initWorkspaceDropTarget() {
 }
 
 // =====================================================================
-// @ file references in the chat input
+// @ file/agent & # knowledge/memory references in the chat input
 // =====================================================================
 let mentionActive = false;
+let mentionMode = 'at'; // 'at' | 'hash'
 let mentionStart = -1;
 let mentionItems = [];
 let mentionIndex = 0;
@@ -1163,9 +1178,16 @@ let mentionTimer = null;
 
 function hideMentionMenu() {
     mentionActive = false;
+    mentionMode = 'at';
     mentionStart = -1;
     mentionItems = [];
     document.getElementById('mention-menu')?.classList.add('hidden');
+}
+
+function _memoryBadgeLabel(type) {
+    if (type === 'dream') return t('cite_kind_dream') || 'Dream';
+    if (type === 'evolution') return t('cite_kind_evolution') || 'Evolution';
+    return t('cite_kind_memory') || 'Memory';
 }
 
 function renderMentionMenu() {
@@ -1185,6 +1207,22 @@ function renderMentionMenu() {
                 ${face}
                 <span class="m-name">${escapeHtml(item.name)}</span>
                 <span class="m-path">${escapeHtml(item.id)}</span>
+            </div>`;
+        }
+        if (item.kind === 'knowledge_ref') {
+            return `<div class="mention-item ${i === mentionIndex ? 'active' : ''}" data-idx="${i}">
+                <i class="fas fa-book text-emerald-500"></i>
+                <span class="m-name">${escapeHtml(item.title || item.path)}</span>
+                <span class="m-path">${escapeHtml((t('cite_kind_knowledge') || 'Knowledge') + ' · ' + item.path)}</span>
+            </div>`;
+        }
+        if (item.kind === 'memory_ref') {
+            const mIcon = item.memType === 'dream' ? 'fa-moon text-violet-500'
+                : (item.memType === 'evolution' ? 'fa-seedling text-emerald-500' : 'fa-brain text-purple-500');
+            return `<div class="mention-item ${i === mentionIndex ? 'active' : ''}" data-idx="${i}">
+                <i class="fas ${mIcon}"></i>
+                <span class="m-name">${escapeHtml(item.filename)}</span>
+                <span class="m-path">${escapeHtml(_memoryBadgeLabel(item.memType))}</span>
             </div>`;
         }
         return `<div class="mention-item ${i === mentionIndex ? 'active' : ''}" data-idx="${i}">
@@ -1212,16 +1250,46 @@ function matchingAgentMentions(query) {
         .map(agent => ({ kind: 'agent', id: agent.id, name: agent.name, avatar: agent.avatar || '' }));
 }
 
+async function updateHashMentionQuery(query) {
+    const q = String(query || '').trim();
+    const agent = typeof activeAgentId !== 'undefined' ? activeAgentId : '';
+    const [kbRes, memRes] = await Promise.all([
+        fetch(`/api/knowledge/search?q=${encodeURIComponent(q)}&limit=8&agent_id=${encodeURIComponent(agent || '')}`)
+            .then(r => r.json()).catch(() => ({ results: [] })),
+        fetch(`/api/memory/search?q=${encodeURIComponent(q)}&category=all&limit=8&agent_id=${encodeURIComponent(agent || '')}`)
+            .then(r => r.json()).catch(() => ({ results: [] })),
+    ]);
+    if (!mentionActive || mentionMode !== 'hash') return;
+    const kbItems = (kbRes.results || []).map(item => ({
+        kind: 'knowledge_ref',
+        path: item.path,
+        title: item.title || item.path,
+    }));
+    const memItems = (memRes.results || []).map(item => ({
+        kind: 'memory_ref',
+        path: item.rel_path || item.filename,
+        filename: item.filename,
+        memType: item.type || 'daily',
+    }));
+    mentionItems = kbItems.concat(memItems);
+    mentionIndex = 0;
+    renderMentionMenu();
+}
+
 async function updateMentionQuery(query) {
+    if (mentionMode === 'hash') {
+        await updateHashMentionQuery(query);
+        return;
+    }
     const agents = matchingAgentMentions(query);
     try {
         const data = await wsApi(`/api/workspace/search?q=${encodeURIComponent(query)}&limit=12`);
-        if (!mentionActive) return;
+        if (!mentionActive || mentionMode !== 'at') return;
         mentionItems = agents.concat(data.results || []);
         mentionIndex = 0;
         renderMentionMenu();
     } catch (_) {
-        if (!mentionActive) return;
+        if (!mentionActive || mentionMode !== 'at') return;
         mentionItems = agents;
         mentionIndex = 0;
         if (agents.length) renderMentionMenu();
@@ -1242,6 +1310,14 @@ function acceptMention(idx) {
         input.value = before + inserted + after;
         input.selectionStart = input.selectionEnd = before.length + inserted.length;
         if (typeof addTeamMember === 'function') addTeamMember(item.id);
+    } else if (item.kind === 'knowledge_ref' || item.kind === 'memory_ref') {
+        addCitationAttachment({
+            file_path: item.path,
+            file_name: item.title || item.filename || item.path.split('/').pop(),
+            file_type: item.kind,
+        });
+        input.value = before + after;
+        input.selectionStart = input.selectionEnd = before.length;
     } else {
         addWorkspaceRefAttachment(item);
         // Drop the "@query" fragment: the file travels as an attachment, not as text.
@@ -1261,16 +1337,23 @@ function initMention() {
     input.addEventListener('input', () => {
         const pos = input.selectionStart;
         const before = input.value.slice(0, pos);
-        // Trigger on "@" at the start of the input or after whitespace.
-        const match = before.match(/(?:^|\s)@([^\s@]*)$/);
-        if (!match) {
+        // Trigger on "@" or "#" at the start of the input or after whitespace.
+        const atMatch = before.match(/(?:^|\s)@([^\s@]*)$/);
+        const hashMatch = atMatch ? null : before.match(/(?:^|\s)#([^\s#]*)$/);
+        if (!atMatch && !hashMatch) {
             if (mentionActive) hideMentionMenu();
             return;
         }
         mentionActive = true;
-        mentionStart = pos - match[1].length - 1;
+        if (atMatch) {
+            mentionMode = 'at';
+            mentionStart = pos - atMatch[1].length - 1;
+        } else {
+            mentionMode = 'hash';
+            mentionStart = pos - hashMatch[1].length - 1;
+        }
         clearTimeout(mentionTimer);
-        const q = match[1];
+        const q = atMatch ? atMatch[1] : hashMatch[1];
         mentionTimer = setTimeout(() => updateMentionQuery(q), 150);
     });
 

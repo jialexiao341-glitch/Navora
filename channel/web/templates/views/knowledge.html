@@ -84,11 +84,18 @@
                                             <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
                                                 <div class="relative">
                                                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                                    <input id="knowledge-search" type="text" placeholder="Search..."
-                                                           class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary-400/50"
+                                                    <input id="knowledge-search" type="text"
+                                                           data-i18n-placeholder="knowledge_search_ph"
+                                                           placeholder="搜索知识库标题或正文内容…"
+                                                           class="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary-400/50"
                                                            oninput="filterKnowledgeTree(this.value)">
+                                                    <button id="knowledge-search-clear" type="button" onclick="clearKnowledgeSearch()"
+                                                            class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5">
+                                                        <i class="fas fa-xmark text-[11px]"></i>
+                                                    </button>
                                                 </div>
                                             </div>
+                                            <div id="knowledge-search-results" class="hidden p-2 overflow-y-auto flex-1 max-h-[50vh] md:max-h-none space-y-1.5"></div>
                                             <div id="knowledge-tree" class="p-2 overflow-y-auto flex-1 max-h-[50vh] md:max-h-none"></div>
                                         </div>
                                     </div>
@@ -108,6 +115,11 @@
                                                     <i class="fas fa-file-lines text-slate-400 text-sm hidden md:inline"></i>
                                                     <span id="knowledge-viewer-title" class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate"></span>
                                                     <span id="knowledge-viewer-path" class="text-xs text-slate-400 dark:text-slate-500 ml-auto font-mono truncate hidden md:inline"></span>
+                                                    <button id="knowledge-btn-cite" onclick="citeCurrentKnowledgeToChat()"
+                                                            class="doc-action-btn hidden ml-auto md:ml-0">
+                                                        <i class="fas fa-hashtag text-xs"></i>
+                                                        <span class="hidden sm:inline" data-i18n="cite_to_chat">引用到对话</span>
+                                                    </button>
                                                     <button id="knowledge-btn-edit" onclick="knowledgeEditor.start()"
                                                             class="doc-action-btn hidden ml-auto md:ml-0">
                                                         <i class="fas fa-pen text-xs"></i>
