@@ -14,6 +14,7 @@ interface PetWindowDeps {
 
 let deps: PetWindowDeps | null = null
 let petWindow: BrowserWindow | null = null
+let petPageHealthy = false
 let backendPort = 0
 let mode: PetDesktopMode = { desktopWindow: true, enabled: true }
 let ipcInitialized = false
@@ -109,22 +110,49 @@ function ensurePetWindow(): BrowserWindow | null {
   petWindow.on('page-title-updated', (e) => e.preventDefault())
 
   const url = `http://127.0.0.1:${backendPort}/pet`
+  petPageHealthy = false
   void petWindow.loadURL(url)
+
+  petWindow.webContents.on('did-navigate', (_event, _navUrl, httpResponseCode) => {
+    petPageHealthy = httpResponseCode >= 200 && httpResponseCode < 400
+    if (!petPageHealthy) {
+      console.warn(`[pet-window] /pet returned HTTP ${httpResponseCode}; hiding overlay`)
+      if (petWindow && !petWindow.isDestroyed()) {
+        petWindow.hide()
+      }
+    }
+  })
+
+  petWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    petPageHealthy = false
+    console.warn(`[pet-window] /pet failed to load (${errorCode}): ${errorDescription}`)
+    if (petWindow && !petWindow.isDestroyed()) {
+      petWindow.hide()
+    }
+  })
 
   petWindow.once('ready-to-show', () => {
     if (!petWindow || petWindow.isDestroyed()) return
-    if (isActiveOverlay()) {
+    if (petPageHealthy && isActiveOverlay()) {
       petWindow.showInactive()
     }
   })
 
   petWindow.webContents.on('did-finish-load', () => {
     if (!petWindow || petWindow.isDestroyed()) return
+    if (!petPageHealthy) {
+      petWindow.hide()
+      return
+    }
+    if (isActiveOverlay() && !petWindow.isVisible()) {
+      petWindow.showInactive()
+    }
     petWindow.webContents.send('pet-config-changed', { ...mode })
   })
 
   petWindow.on('closed', () => {
     petWindow = null
+    petPageHealthy = false
   })
 
   if (!displayHooked) {
@@ -142,9 +170,11 @@ function applyPetWindowState(): void {
     if (win && !win.isDestroyed()) {
       const targetUrl = `http://127.0.0.1:${backendPort}/pet`
       if (win.webContents.getURL() !== targetUrl) {
+        petPageHealthy = false
         void win.loadURL(targetUrl)
+      } else if (petPageHealthy && !win.isVisible()) {
+        win.showInactive()
       }
-      if (!win.isVisible()) win.showInactive()
     }
   } else if (petWindow && !petWindow.isDestroyed()) {
     try {
