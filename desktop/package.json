@@ -1,6 +1,6 @@
 {
   "name": "navora-desktop",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "Navora Desktop Client - AI Agent on your desktop",
   "main": "dist/main/index.js",
   "author": "CowAgent",
