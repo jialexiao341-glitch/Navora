@@ -227,11 +227,35 @@
             banner.classList.add('hidden');
             return;
         }
+        if (typeof closeUpdateMenu === 'function') closeUpdateMenu();
         const titleEl = document.getElementById('dub-title');
         const bodyEl = document.getElementById('dub-body');
         if (!titleEl || !bodyEl) return;
 
         bodyEl.innerHTML = '';
+
+        if (st.state === 'not-available') {
+            titleEl.textContent = _tr('update_up_to_date', 'You are up to date');
+            const verRaw = st.version || (typeof APP_VERSION === 'string' ? APP_VERSION : '');
+            const verLabel = verRaw ? (verRaw.startsWith('v') ? verRaw : 'v' + verRaw) : '';
+            const msg = document.createElement('p');
+            msg.className = 'text-xs text-slate-500 dark:text-slate-400 break-words';
+            msg.textContent = verLabel
+                ? _tr('update_latest_desc', 'Currently running the latest version') + ' (' + verLabel + ')'
+                : _tr('update_latest_desc', 'Currently running the latest version');
+            const okBtn = document.createElement('button');
+            okBtn.type = 'button';
+            okBtn.className = 'w-full py-1.5 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer transition-colors';
+            okBtn.textContent = _tr('update_ok', 'OK');
+            okBtn.addEventListener('click', function() {
+                updateState.bannerOpen = false;
+                _renderBanner();
+            });
+            bodyEl.appendChild(msg);
+            bodyEl.appendChild(okBtn);
+            banner.classList.remove('hidden');
+            return;
+        }
 
         if (st.state === 'error') {
             titleEl.textContent = _tr('update_failed', 'Update failed');
@@ -362,7 +386,7 @@
             if (st.state === 'not-available') {
                 if (typeof _updateChecking !== 'undefined') _updateChecking = false;
                 if (typeof _updateRunning !== 'undefined') _updateRunning = false;
-                updateState.bannerOpen = false;
+                updateState.bannerOpen = st.userInitiated === true;
                 _renderBanner();
                 if (typeof _renderUpdateAction === 'function') {
                     _renderUpdateAction('up_to_date', _tr('update_up_to_date', 'You are up to date'));

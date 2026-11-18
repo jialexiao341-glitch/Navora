@@ -254,7 +254,9 @@ test('desktop.js confirms before update install when busy or draft exists and sh
     let logCalls = 0;
     const openedUrls = [];
     const confirmCalls = [];
+    let menuClosedCalls = 0;
     const handlers = {};
+    const titleEl = { textContent: '' };
     const bodyEl = {
         children: [],
         set innerHTML(v) { if (!v) this.children = []; },
@@ -296,7 +298,7 @@ test('desktop.js confirms before update install when busy or draft exists and sh
             createElement: makeNode,
             getElementById: (id) => {
                 if (id === 'desktop-update-banner') return bannerEl;
-                if (id === 'dub-title') return { textContent: '' };
+                if (id === 'dub-title') return titleEl;
                 if (id === 'dub-body') return bodyEl;
                 if (id === 'dub-close') return { addEventListener() {} };
                 if (id === 'send-btn') return busyMode ? sendBtn : { classList: { contains: () => false } };
@@ -306,11 +308,26 @@ test('desktop.js confirms before update install when busy or draft exists and sh
             addEventListener() {},
         },
         showConfirmDialog: (opts) => confirmCalls.push(opts),
+        closeUpdateMenu: () => { menuClosedCalls += 1; },
         t: (k) => 'tr:' + k,
         GITHUB_RELEASES_URL: 'https://github.com/jialexiao341-glitch/Navora/releases',
     };
 
     vm.runInNewContext(code, sandbox);
+
+    // Background not-available stays silent when banner was closed.
+    handlers.update({ state: 'not-available', version: '2.3.0', userInitiated: false });
+    assert.equal(bannerEl.classList.contains('hidden'), true);
+
+    // Manual not-available shows the "up to date" banner, closes the menu, and dismisses on OK.
+    handlers.update({ state: 'not-available', version: '2.3.0', userInitiated: true });
+    assert.equal(bannerEl.classList.contains('hidden'), false);
+    assert.equal(titleEl.textContent, 'tr:update_up_to_date');
+    assert.ok(bodyEl.children.some((c) => /v2\.3\.0/.test(c.textContent)));
+    assert.ok(menuClosedCalls >= 1);
+    const okBtn = bodyEl.children[bodyEl.children.length - 1];
+    okBtn.on_click();
+    assert.equal(bannerEl.classList.contains('hidden'), true);
 
     handlers.update({ state: 'downloaded', version: '2.3.0', notes: '<p>Bug fixes &amp; speedups</p>' });
     assert.ok(bodyEl.children.some((c) => /Bug fixes/.test(c.textContent)));

@@ -18,7 +18,7 @@ export type UpdateStatus =
   // to auto-open the panel: automatic checks stay silent (dot only) once a
   // version was dismissed; a manual check always re-opens.
   | { state: 'available'; version: string; notes?: string; userInitiated?: boolean }
-  | { state: 'not-available' }
+  | { state: 'not-available'; version?: string; userInitiated?: boolean }
   | { state: 'downloading'; percent: number }
   | { state: 'downloaded'; version: string }
   | { state: 'error'; message: string; userInitiated?: boolean }
@@ -232,9 +232,11 @@ export function initUpdater(windowGetter: () => BrowserWindow | null): void {
     })
   })
   autoUpdater.on('update-not-available', (info) => {
+    const manual = userInitiatedCheck
     userInitiatedCheck = false
-    log(`update-not-available: current=${app.getVersion()} remote=${info?.version ?? '<unknown>'} -> up to date`)
-    send({ state: 'not-available' })
+    const version = info?.version || app.getVersion()
+    log(`update-not-available: current=${app.getVersion()} remote=${info?.version ?? '<unknown>'} userInitiated=${manual} -> up to date`)
+    send({ state: 'not-available', version, userInitiated: manual })
   })
   autoUpdater.on('download-progress', (p) => {
     log(`download-progress: ${Math.round(p.percent)}% (${p.transferred}/${p.total} bytes, ${Math.round(p.bytesPerSecond / 1024)} KB/s)`)
@@ -276,8 +278,10 @@ export function checkForUpdates(userInitiated = false): void {
       send({ state: 'available', version, userInitiated: userInitiatedCheck })
       return
     }
-    log('checkForUpdates: not packaged, replying not-available')
-    send({ state: 'not-available' })
+    const manual = userInitiatedCheck
+    userInitiatedCheck = false
+    log(`checkForUpdates: not packaged, replying not-available userInitiated=${manual}`)
+    send({ state: 'not-available', version: app.getVersion(), userInitiated: manual })
     return
   }
   if (checkInFlight) {
