@@ -72,3 +72,40 @@ jobs:
             exit 0
           fi
           ruff check $files --select F --ignore F403,F405
+
+  web-tests:
+    name: Web Console tests (Node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Web Console unit tests
+        run: node --test tests/web_*.test.cjs
+
+  desktop-build:
+    name: Desktop compile check (Node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build desktop renderer and main
+        working-directory: desktop
+        run: npm run build
