@@ -49,6 +49,14 @@ class TestDesktopReleaseConfig(unittest.TestCase):
             re.compile(r"GITHUB_RELEASES_URL\s*=\s*'https://github\.com/jialexiao341-glitch/Navora/releases'"),
         )
 
+    def test_pyinstaller_spec_bundles_all_web_shell_html_files(self):
+        spec_src = (ROOT / "desktop" / "build" / "cowagent-backend.spec").read_text(encoding="utf-8")
+        html_files = sorted(p.name for p in (ROOT / "channel" / "web").glob("*.html"))
+        self.assertIn("chat.html", html_files)
+        self.assertIn("pet.html", html_files)
+        for name in html_files:
+            self.assertIn(f"'{name}'", spec_src, f"Missing channel/web/{name} in cowagent-backend.spec")
+
 
 if __name__ == "__main__":
     unittest.main()

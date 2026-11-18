@@ -146,12 +146,14 @@ datas = [
     # sys.path, so `import cli.commands.*` resolves even if PyInstaller's
     # submodule collection misses the lazily-imported command modules.
     (rp('cli'), 'cli'),
-    # Web console served on the backend port: ship chat.html plus its static
-    # assets (~1.9MB) so the browser-based console works as a debug/fallback
-    # entry alongside the Electron UI. chat.html is only a shell: channel/web/
-    # template.py assembles it from templates/ on every request, so that
-    # directory has to travel too or the console answers with a 500.
+    # Web console served on the backend port: ship chat.html, pet.html plus static
+    # assets (~1.9MB) so the browser-based console and standalone pet overlay
+    # work as expected alongside the Electron UI. chat.html/pet.html are thin
+    # shells: channel/web/core/template.py assembles them from templates/ on
+    # every request, so that directory has to travel too or the console answers
+    # with a 500.
     (rp('channel', 'web', 'chat.html'), 'channel/web'),
+    (rp('channel', 'web', 'pet.html'), 'channel/web'),
     (rp('channel', 'web', 'templates'), 'channel/web/templates'),
     (rp('channel', 'web', 'static'), 'channel/web/static'),
 ]
