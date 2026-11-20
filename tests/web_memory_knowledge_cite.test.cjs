@@ -43,11 +43,20 @@ test('memory, knowledge, and chat views expose search and citation hooks', () =>
     assert.match(memoryHtml, /id="memory-search-input"/);
     assert.match(memoryHtml, /id="memory-search-results"/);
     assert.match(memoryHtml, /id="memory-btn-cite"/);
+    assert.match(memoryHtml, /id="memory-index-card"/);
+    assert.match(memoryHtml, /id="memory-rebuild-btn"/);
+    assert.match(memoryHtml, /id="evolution-backups-section"/);
+    assert.match(memoryHtml, /id="memory-panel-diff"/);
 
     assert.match(knowledgeHtml, /id="knowledge-search-results"/);
     assert.match(knowledgeHtml, /id="knowledge-btn-cite"/);
 
     assert.match(memoryJs, /\/api\/memory\/search/);
+    assert.match(memoryJs, /\/api\/memory\/index/);
+    assert.match(memoryJs, /\/api\/memory\/index\/rebuild/);
+    assert.match(memoryJs, /\/api\/memory\/evolution\/backups/);
+    assert.match(memoryJs, /\/api\/memory\/evolution\/diff/);
+    assert.match(memoryJs, /\/api\/memory\/evolution\/restore/);
     assert.match(memoryJs, /citeMemoryToChat/);
     assert.match(knowledgeJs, /\/api\/knowledge\/search/);
     assert.match(knowledgeJs, /citeCurrentKnowledgeToChat/);
@@ -57,4 +66,25 @@ test('memory, knowledge, and chat views expose search and citation hooks', () =>
     assert.ok(workspaceJs.includes('/(?:^|\\s)#([^\\s#]*)$/'));
     assert.match(stateJs, /att\.file_type === 'knowledge_ref'/);
     assert.match(stateJs, /att\.file_type === 'memory_ref'/);
+});
+
+test('memory view helpers format index warnings and escape unified diff safely', () => {
+    const { formatMemoryIndexWarnings, renderUnifiedDiffHtml } = require('../channel/web/static/js/views/memory.js');
+
+    const warnings = formatMemoryIndexWarnings({
+        warnings: ['missing_vectors', 'dim_mismatch', 'chunker_outdated'],
+        missing_chunks: 4,
+        index_dim: 768,
+        embedding_dim: 1536,
+    });
+    assert.equal(warnings.length, 3);
+    assert.ok(warnings[0].text.includes('4'));
+    assert.ok(warnings[1].text.includes('768'));
+    assert.ok(warnings[1].text.includes('1536'));
+
+    const diffHtml = renderUnifiedDiffHtml('--- snapshot/a.md\n+++ current/a.md\n@@ -1 +1 @@\n-old <tag>\n+new <script>alert(1)</script>');
+    assert.ok(!diffHtml.includes('<script>'));
+    assert.match(diffHtml, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+    assert.match(diffHtml, /text-emerald-700/);
+    assert.match(diffHtml, /text-rose-700/);
 });

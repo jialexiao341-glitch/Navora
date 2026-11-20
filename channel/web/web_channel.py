@@ -48,7 +48,9 @@ from channel.web.api.knowledge import (  # noqa: F401
 )
 from channel.web.api.logs import LogsDownloadHandler, LogsHandler  # noqa: F401
 from channel.web.api.memory import (  # noqa: F401
-    MemoryContentHandler, MemoryHandler, MemorySearchHandler,
+    EvolutionBackupDiffHandler, EvolutionBackupRestoreHandler,
+    EvolutionBackupsHandler, MemoryContentHandler, MemoryHandler,
+    MemoryIndexRebuildHandler, MemoryIndexStatusHandler, MemorySearchHandler,
 )
 from channel.web.api.menu import MenuHandler  # noqa: F401
 from channel.web.api.models import ModelsHandler  # noqa: F401
@@ -160,6 +162,11 @@ URLS = (
     '/api/memory', 'MemoryHandler',
     '/api/memory/content', 'MemoryContentHandler',
     '/api/memory/search', 'MemorySearchHandler',
+    '/api/memory/index/rebuild', 'MemoryIndexRebuildHandler',
+    '/api/memory/index', 'MemoryIndexStatusHandler',
+    '/api/memory/evolution/backups', 'EvolutionBackupsHandler',
+    '/api/memory/evolution/diff', 'EvolutionBackupDiffHandler',
+    '/api/memory/evolution/restore', 'EvolutionBackupRestoreHandler',
     '/api/knowledge/list', 'KnowledgeListHandler',
     '/api/knowledge/read', 'KnowledgeReadHandler',
     '/api/knowledge/search', 'KnowledgeSearchHandler',

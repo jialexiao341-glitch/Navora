@@ -78,6 +78,7 @@ function openMemoryFile(filename, category) {
     fetch(`/api/memory/content?filename=${encodeURIComponent(filename)}&category=${category}&agent_id=${encodeURIComponent(agent || '')}`).then(r => r.json()).then(data => {
         if (data.status !== 'success') return;
         document.getElementById('memory-panel-list').classList.add('hidden');
+        document.getElementById('memory-panel-diff')?.classList.add('hidden');
         document.getElementById('memory-panel-viewer').classList.remove('hidden');
         document.getElementById('memory-btn-cite')?.classList.remove('hidden');
         memoryEditor.open({
@@ -102,6 +103,7 @@ function closeMemoryViewer() {
     memoryEditor.forget();
     document.getElementById('memory-btn-cite')?.classList.add('hidden');
     document.getElementById('memory-panel-viewer').classList.add('hidden');
+    document.getElementById('memory-panel-diff')?.classList.add('hidden');
     document.getElementById('memory-panel-list').classList.remove('hidden');
     // A save changed the size and timestamp the list shows.
     loadMemoryView(memoryPage);

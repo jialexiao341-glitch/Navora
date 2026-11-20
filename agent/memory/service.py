@@ -213,6 +213,120 @@ class MemoryService:
         }
 
     # ------------------------------------------------------------------
+    # index status — vector & FTS5 index health
+    # ------------------------------------------------------------------
+    def get_index_status(self, memory_manager=None) -> dict:
+        """Return memory vector/FTS5 index stats, active embedding config, and health warnings."""
+        import sqlite3
+        from agent.memory.chunker import TextChunker
+        from agent.memory.config import MemoryConfig
+        from agent.memory.embedding import (
+            describe_configured_embedding,
+            detect_chunker_version,
+            detect_index_dim,
+        )
+        from config import conf
+
+        cfg = memory_manager.config if memory_manager is not None else MemoryConfig(workspace_root=self.workspace_root)
+        db_path = cfg.get_db_path()
+        index_exists = db_path.is_file()
+
+        files = 0
+        chunks = 0
+        embedded = 0
+        index_dim = None
+        chunker_version = None
+
+        storage = getattr(memory_manager, "storage", None) if memory_manager is not None else None
+        if storage is not None:
+            stats = storage.get_stats()
+            files = int(stats.get("files", 0))
+            chunks = int(stats.get("chunks", 0))
+            embedded = int(stats.get("embedded", 0))
+            index_dim = detect_index_dim(storage)
+            chunker_version = detect_chunker_version(storage)
+        elif index_exists:
+            conn = None
+            try:
+                conn = sqlite3.connect(
+                    db_path.resolve().as_uri() + "?mode=ro",
+                    uri=True,
+                    timeout=2.0,
+                )
+                conn.row_factory = sqlite3.Row
+
+                class _ReadOnlyStorage:
+                    def __init__(self, c):
+                        self.conn = c
+
+                    def get_meta(self, key: str):
+                        try:
+                            row = self.conn.execute(
+                                "SELECT value FROM _meta WHERE key = ?", (key,)
+                            ).fetchone()
+                            return row["value"] if row else None
+                        except sqlite3.Error:
+                            return None
+
+                ro = _ReadOnlyStorage(conn)
+                try:
+                    chunks = int(conn.execute("SELECT COUNT(*) AS cnt FROM chunks").fetchone()["cnt"])
+                    embedded = int(conn.execute("SELECT COUNT(*) AS cnt FROM chunks WHERE embedding IS NOT NULL").fetchone()["cnt"])
+                except sqlite3.Error:
+                    chunks = 0
+                    embedded = 0
+                try:
+                    files = int(conn.execute("SELECT COUNT(*) AS cnt FROM files").fetchone()["cnt"])
+                except sqlite3.Error:
+                    files = 0
+                index_dim = detect_index_dim(ro)
+                chunker_version = detect_chunker_version(ro)
+            except sqlite3.Error as e:
+                logger.debug(f"[MemoryService] Failed to inspect index DB {db_path}: {e}")
+            finally:
+                if conn is not None:
+                    conn.close()
+
+        emb = describe_configured_embedding()
+        warnings = []
+        if not emb["configured"]:
+            warnings.append("no_provider")
+        else:
+            if chunks > 0 and embedded < chunks:
+                warnings.append("missing_vectors")
+            if index_dim is not None and emb["dimensions"] and index_dim != emb["dimensions"]:
+                warnings.append("dim_mismatch")
+            if chunks > 0 and chunker_version != TextChunker.CHUNKER_VERSION:
+                warnings.append("chunker_outdated")
+
+        if emb["configured"] and embedded > 0:
+            search_mode = "hybrid"
+        elif emb["configured"]:
+            search_mode = "hybrid_pending"
+        else:
+            search_mode = "keyword_only"
+
+        return {
+            "index_exists": index_exists,
+            "db_path": str(db_path),
+            "files": files,
+            "chunks": chunks,
+            "embedded": embedded,
+            "missing_chunks": max(0, chunks - embedded),
+            "index_dim": index_dim,
+            "chunker_version": chunker_version,
+            "current_chunker_version": TextChunker.CHUNKER_VERSION,
+            "embedding_configured": emb["configured"],
+            "embedding_explicit": emb["explicit"],
+            "embedding_provider": emb["provider"],
+            "embedding_model": emb["model"],
+            "embedding_dim": emb["dimensions"],
+            "rerank_enabled": bool((conf().get("rerank_provider") or "").strip()),
+            "search_mode": search_mode,
+            "warnings": warnings,
+        }
+
+    # ------------------------------------------------------------------
     # dispatch — single entry point for protocol messages
     # ------------------------------------------------------------------
     def dispatch(self, action: str, payload: Optional[dict] = None) -> dict:

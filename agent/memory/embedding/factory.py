@@ -244,3 +244,68 @@ def _log_provider_once(detail: str):
     if not _embedding_logged:
         logger.info(f"[EmbeddingFactory] Embedding model in use: {detail}")
         _embedding_logged = True
+
+
+def describe_configured_embedding() -> dict:
+    """Inspect active embedding configuration without making network requests."""
+    from agent.memory.embedding.provider import EMBEDDING_VENDORS
+    from config import conf
+
+    raw_provider = conf().get("embedding_provider")
+    explicit_provider = raw_provider.strip().lower() if isinstance(raw_provider, str) else ""
+
+    if not explicit_provider:
+        for provider_key in ("openai", "cowagent", "linkai"):
+            if _resolve_api_key(provider_key):
+                return {
+                    "explicit": False,
+                    "configured": True,
+                    "provider": provider_key,
+                    "model": "text-embedding-3-small",
+                    "dimensions": 1536,
+                }
+        return {
+            "explicit": False,
+            "configured": False,
+            "provider": "",
+            "model": "",
+            "dimensions": None,
+        }
+
+    resolved_key = "custom" if explicit_provider.startswith("custom:") else explicit_provider
+    meta = EMBEDDING_VENDORS.get(resolved_key)
+    if meta is None:
+        return {
+            "explicit": True,
+            "configured": False,
+            "provider": explicit_provider,
+            "model": "",
+            "dimensions": None,
+        }
+
+    api_key = _resolve_api_key(explicit_provider)
+    raw_model = conf().get("embedding_model")
+    model = raw_model.strip() if isinstance(raw_model, str) else ""
+    if not model and resolved_key == "custom":
+        from models.custom_provider import parse_custom_bot_type, get_custom_providers, _find_provider_by_id
+        _, custom_id = parse_custom_bot_type(explicit_provider)
+        if custom_id:
+            entry = _find_provider_by_id(get_custom_providers(), custom_id)
+            if entry and entry.get("model"):
+                model = entry["model"]
+    if not model and resolved_key != "custom":
+        model = meta["default_model"]
+
+    try:
+        cfg_dim = int(conf().get("embedding_dimensions") or 0)
+    except (TypeError, ValueError):
+        cfg_dim = 0
+    dim = cfg_dim if cfg_dim > 0 else meta["default_dimensions"]
+
+    return {
+        "explicit": True,
+        "configured": bool(api_key),
+        "provider": explicit_provider,
+        "model": model or "",
+        "dimensions": dim,
+    }
