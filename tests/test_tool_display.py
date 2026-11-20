@@ -6,8 +6,6 @@ carries the readable one out to whoever is watching without spending any of the
 model's context on a second copy.
 """
 
-from pathlib import Path
-
 from agent.protocol.agent_stream import AgentStreamExecutor
 from agent.tools.base_tool import BaseTool, ToolResult
 
@@ -94,20 +92,14 @@ def test_a_tool_can_tell_which_call_it_is_running():
     assert tool.tool_call_id is None
 
 
-def test_both_consoles_render_what_the_backend_sends():
-    """The web console and the desktop app read the same stream. A field only
-    one of them understands is a feature that exists on one client."""
-    root = Path(__file__).parents[1]
+def test_web_console_renders_what_the_backend_sends():
+    """The web console (served to both browser and Electron) renders rich tool
+    displays and subagent step cards sent by the backend stream."""
     from conftest import console_js
     web = console_js()
-    desktop_store = (root / "desktop/src/renderer/src/store/chatStore.ts").read_text(encoding="utf-8")
-    desktop_steps = (root / "desktop/src/renderer/src/components/MessageSteps.tsx").read_text(encoding="utf-8")
 
     # The readable form is rendered as markdown rather than dumped as text.
     assert "renderMarkdown(String(item.display))" in web
-    assert "<Markdown content={step.display} />" in desktop_steps
 
-    # A sub agent's own tool calls are filed under its card on both.
+    # A sub agent's own tool calls are filed under its card.
     assert "item.type === 'subagent_step'" in web
-    assert "case 'subagent_step':" in desktop_store
-    assert "substeps" in desktop_steps

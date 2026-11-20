@@ -319,33 +319,6 @@ def test_both_kinds_of_attachment_pick_sit_behind_one_button():
     assert "function initSkillAttachMenu(" in js
     assert "hideSkillAttachMenu();" in js
 
-    form = (Path(__file__).parents[1]
-            / "desktop/src/renderer/src/pages/skills/SkillCreateForm.tsx").read_text(encoding="utf-8")
-    assert "setAttachOpen((v) => !v)" in form
-    assert "!attachRef.current.contains(e.target as Node)" in form
-
-
-def test_the_desktop_create_form_bundles_a_folder_the_same_way():
-    """The desktop console posts to the same endpoint, so an attachment picked
-    there has to carry its path too, or the same folder would install flat."""
-    from pathlib import Path
-
-    root = Path(__file__).parents[1] / "desktop/src/renderer/src"
-    form = (root / "pages/skills/SkillCreateForm.tsx").read_text(encoding="utf-8")
-    modal = (root / "pages/skills/SkillAddModal.tsx").read_text(encoding="utf-8")
-    client = (root / "api/client.ts").read_text(encoding="utf-8")
-
-    assert "formData.append('relative_paths', file.webkitRelativePath || file.name)" in client
-    # A folder picker needs the attribute React's typings do not carry.
-    assert form.count("{...FOLDER_INPUT_PROPS}") == 1
-    assert "function skillUploadCandidates(" in form
-    assert "addAttachments(picked, true)" in form
-    # The form is the add dialog's third tab, submitted by the dialog's footer.
-    assert "value: 'create', label: t('skill_add_tab_create')" in modal
-    assert "form={SKILL_CREATE_FORM_ID}" in modal
-    # Uploading an existing skill is SkillAddModal's staged flow alone.
-    assert "uploadSkillArchive" not in client and "uploadSkillFolder" not in client
-
 
 def test_the_name_preview_normalizes_the_way_the_server_does():
     """The hint under the name field promises the directory that will be

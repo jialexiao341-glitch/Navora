@@ -53,17 +53,8 @@ def test_web_sse_forwards_only_sanitized_retrieval_metadata():
     assert published[1][1]["fallback_reason"] == "missing_query_vector"
 
 
-def test_web_and_desktop_render_the_retrieval_event():
+def test_web_renders_the_retrieval_event():
     web = (ROOT / "channel/web/static/js/chat/send.js").read_text(encoding="utf-8")
-    desktop_store = (
-        ROOT / "desktop/src/renderer/src/store/chatStore.ts"
-    ).read_text(encoding="utf-8")
-    desktop_steps = (
-        ROOT / "desktop/src/renderer/src/components/MessageSteps.tsx"
-    ).read_text(encoding="utf-8")
 
     assert "item.type === 'tool_retrieval'" in web
     assert "escapeHtml(selected.join(', '))" in web
-    assert "case 'tool_retrieval':" in desktop_store
-    assert "step.type === 'retrieval'" in desktop_steps
-    assert "retrieval.fallback_reason" in desktop_steps

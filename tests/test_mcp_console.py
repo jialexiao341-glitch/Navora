@@ -416,13 +416,14 @@ def test_frontend_contract_exposes_mcp_and_skill_install_surfaces():
         + _read("channel/web/templates/modals/mcp-editor.html")
         + _read("channel/web/templates/modals/skill-add.html")
     )
-    js = _read("channel/web/static/js/views/skills.js") + _read("channel/web/static/js/core/i18n.js")
-    py = _read("channel/web/web_channel.py") + _read("channel/web/api/skills.py")
-    desktop_page = "".join(
-        _read(f"desktop/src/renderer/src/pages/{name}")
-        for name in ("SkillsPage.tsx", "skills/McpEditorModal.tsx", "skills/SkillAddModal.tsx")
+    js = (
+        _read("channel/web/static/js/views/skills.js")
+        + _read("channel/web/static/js/core/i18n.js")
+        + _read("channel/web/static/js/core/i18n/zh.js")
+        + _read("channel/web/static/js/core/i18n/zh-Hant.js")
+        + _read("channel/web/static/js/core/i18n/en.js")
     )
-    desktop_api = _read("desktop/src/renderer/src/api/client.ts")
+    py = _read("channel/web/web_channel.py") + _read("channel/web/api/skills.py")
 
     assert "'/api/mcp/servers', 'McpServersHandler'" in py
     assert "'/api/mcp/servers/test', 'McpServerTestHandler'" in py
@@ -453,23 +454,3 @@ def test_frontend_contract_exposes_mcp_and_skill_install_surfaces():
         "skill_add:",
     ):
         assert token in js
-
-    for token in (
-        "getMcpServers",
-        "saveMcpServers",
-        "testMcpServer",
-        "previewSkill",
-        "uploadSkill",
-        "confirmSkill",
-        "deleteSkill",
-    ):
-        assert token in desktop_api
-
-    for token in (
-        "mcp_section_title",
-        "getMcpServers",
-        "testMcpServer",
-        "previewSkill",
-        "confirmSkill",
-    ):
-        assert token in desktop_page
