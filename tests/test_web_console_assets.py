@@ -83,6 +83,7 @@ def test_shared_layers_load_before_the_views_that_call_them():
         "js/core/focus-timer.js",
         "js/core/ambient-sounds.js",
         "js/core/leisure-chat.js",
+        "js/core/indesktop-pet-helpers.js",
         "js/core/indesktop-pet.js",
     }
     last_core = max(i for i, s in enumerate(scripts)
