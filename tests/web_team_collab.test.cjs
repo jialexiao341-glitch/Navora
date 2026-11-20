@@ -114,7 +114,9 @@ test('chat HTML, script order, and i18n translations wire team-collab strip clea
     const chatView = fs.readFileSync(path.join(__dirname, '../channel/web/templates/views/chat.html'), 'utf8');
     assert.ok(chatView.includes('id="team-collab-strip"'));
 
-    const i18nSrc = fs.readFileSync(path.join(__dirname, '../channel/web/static/js/core/i18n.js'), 'utf8');
+    const i18nDir = path.join(__dirname, '../channel/web/static/js/core/i18n');
+    const i18nSrc = fs.readFileSync(path.join(__dirname, '../channel/web/static/js/core/i18n.js'), 'utf8')
+        + ['zh.js', 'zh-Hant.js', 'en.js'].map((f) => fs.readFileSync(path.join(i18nDir, f), 'utf8')).join('\n');
     for (const key of ['collab_title', 'pet_phase_handoff', 'pet_phase_subagent', 'substep_count_many']) {
         const matches = i18nSrc.match(new RegExp(`\\b${key}:`, 'g')) || [];
         assert.ok(matches.length >= 3, `${key} should appear in zh, zh-Hant, and en`);

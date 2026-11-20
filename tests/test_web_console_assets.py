@@ -75,12 +75,25 @@ def test_boot_runs_last_among_the_console_scripts_but_before_workspace():
 def test_shared_layers_load_before_the_views_that_call_them():
     scripts = _scripts(_page())
 
-    # core/auth.js is deliberately late; see the dedicated test below.
+    # core/auth.js and the self-initializing shell widgets (ambient/focus/pet)
+    # deliberately load after the views and fetch wrappers; see below.
+    late_core = {
+        "js/core/auth.js",
+        "js/core/ambient-player.js",
+        "js/core/focus-timer.js",
+        "js/core/ambient-sounds.js",
+        "js/core/leisure-chat.js",
+        "js/core/indesktop-pet.js",
+    }
     last_core = max(i for i, s in enumerate(scripts)
-                    if s.startswith("js/core/") and s != "js/core/auth.js")
+                    if s.startswith("js/core/") and s not in late_core)
     first_view = min(i for i, s in enumerate(scripts)
                      if s.startswith("js/views/") and s != "js/views/agents.js")
     assert last_core < first_view
+    auth_idx = scripts.index("js/core/auth.js")
+    boot_idx = scripts.index("js/boot.js")
+    for widget in late_core - {"js/core/auth.js"}:
+        assert auth_idx < scripts.index(widget) < boot_idx
 
     # views/doc-viewers.js calls createDocEditor() at top level.
     assert scripts.index("js/doc-editor.js") < scripts.index("js/views/doc-viewers.js")

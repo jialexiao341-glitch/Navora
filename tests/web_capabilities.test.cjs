@@ -50,7 +50,9 @@ test('capabilities HTML, JS actions, and i18n translations wire search and MCP d
     assert.ok(js.includes('data-mcp-switch'));
     assert.ok(js.includes('mcp-card-error'));
 
-    const i18n = fs.readFileSync(path.join(__dirname, '../channel/web/static/js/core/i18n.js'), 'utf8');
+    const i18nDir = path.join(__dirname, '../channel/web/static/js/core/i18n');
+    const i18n = fs.readFileSync(path.join(__dirname, '../channel/web/static/js/core/i18n.js'), 'utf8')
+        + ['zh.js', 'zh-Hant.js', 'en.js'].map((f) => fs.readFileSync(path.join(i18nDir, f), 'utf8')).join('\n');
     for (const key of ['capabilities_search_ph', 'mcp_tools_count', 'mcp_reload', 'skill_badge_builtin']) {
         const matches = i18n.match(new RegExp(`\\b${key}:`, 'g')) || [];
         assert.ok(matches.length >= 3, `${key} should exist in zh, zh-Hant, and en`);

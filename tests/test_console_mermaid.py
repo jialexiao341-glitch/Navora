@@ -105,5 +105,12 @@ def test_preview_controls_only_show_on_a_rendered_diagram():
     assert f"{done} .mermaid-chart-tools" in css
     assert f"{done} .code-copy-btn" in css
     assert ".mermaid-block.mermaid-fullscreen" in css
-    i18n = _read("channel/web/static/js/core/i18n.js")
+    i18n = "".join(
+        _read(p) for p in (
+            "channel/web/static/js/core/i18n.js",
+            "channel/web/static/js/core/i18n/zh.js",
+            "channel/web/static/js/core/i18n/zh-Hant.js",
+            "channel/web/static/js/core/i18n/en.js",
+        )
+    )
     assert i18n.count("mermaid_preview:") == 3
