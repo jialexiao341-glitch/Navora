@@ -157,9 +157,56 @@ contextBridge.exposeInMainWorld('electronAPI', {
   petSetIgnoreMouse: (ignore: boolean) => ipcRenderer.send('pet-set-ignore-mouse', ignore),
   petSetFocusable: (focusable: boolean) => ipcRenderer.send('pet-set-focusable', focusable),
   petGetDesktopMode: () =>
-    ipcRenderer.invoke('pet-get-desktop-mode') as Promise<{ desktopWindow: boolean; enabled: boolean }>,
-  petSetDesktopMode: (opts: { desktopWindow?: boolean; enabled?: boolean }) =>
-    ipcRenderer.invoke('pet-set-desktop-mode', opts) as Promise<{ desktopWindow: boolean; enabled: boolean }>,
+    ipcRenderer.invoke('pet-get-desktop-mode') as Promise<{
+      desktopWindow: boolean
+      enabled: boolean
+      displayId: string
+      shortcut: string
+    }>,
+  petSetDesktopMode: (opts: { desktopWindow?: boolean; enabled?: boolean; displayId?: string }) =>
+    ipcRenderer.invoke('pet-set-desktop-mode', opts) as Promise<{
+      desktopWindow: boolean
+      enabled: boolean
+      displayId: string
+      shortcut: string
+    }>,
+  petGetDisplays: () =>
+    ipcRenderer.invoke('pet-get-displays') as Promise<{
+      displays: Array<{
+        id: string
+        index: number
+        label: string
+        width: number
+        height: number
+        isPrimary: boolean
+        bounds: { x: number; y: number; width: number; height: number }
+        workArea: { x: number; y: number; width: number; height: number }
+      }>
+      displayId: string
+    }>,
+  petSetDisplay: (displayId: string) =>
+    ipcRenderer.invoke('pet-set-display', displayId) as Promise<{
+      ok: boolean
+      displayId: string
+      displays: Array<{
+        id: string
+        index: number
+        label: string
+        width: number
+        height: number
+        isPrimary: boolean
+        bounds: { x: number; y: number; width: number; height: number }
+        workArea: { x: number; y: number; width: number; height: number }
+      }>
+    }>,
+  petSetShortcut: (shortcut: string) =>
+    ipcRenderer.invoke('pet-set-shortcut', shortcut) as Promise<{
+      ok: boolean
+      shortcut: string
+      error?: string
+    }>,
+  petSetShortcutPaused: (paused: boolean) =>
+    ipcRenderer.invoke('pet-set-shortcut-paused', paused) as Promise<boolean>,
   petSendQuickMessage: (text: string) => ipcRenderer.invoke('pet-quick-message', text) as Promise<boolean>,
   petOpenMainChat: () => ipcRenderer.invoke('pet-open-main-chat') as Promise<boolean>,
   petSyncToOverlay: (event: { type: string; detail?: unknown }) => ipcRenderer.send('pet-sync-to-overlay', event),
@@ -183,6 +230,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event: unknown, patch: Record<string, unknown>) => callback(patch)
     ipcRenderer.on('pet-config-changed', handler)
     return () => ipcRenderer.removeListener('pet-config-changed', handler)
+  },
+  onPetDisplaysChanged: (
+    callback: (payload: {
+      displays: Array<{
+        id: string
+        index: number
+        label: string
+        width: number
+        height: number
+        isPrimary: boolean
+        bounds: { x: number; y: number; width: number; height: number }
+        workArea: { x: number; y: number; width: number; height: number }
+      }>
+      displayId: string
+    }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      payload: {
+        displays: Array<{
+          id: string
+          index: number
+          label: string
+          width: number
+          height: number
+          isPrimary: boolean
+          bounds: { x: number; y: number; width: number; height: number }
+          workArea: { x: number; y: number; width: number; height: number }
+        }>
+        displayId: string
+      },
+    ) => callback(payload)
+    ipcRenderer.on('pet-displays-changed', handler)
+    return () => ipcRenderer.removeListener('pet-displays-changed', handler)
   },
 
   platform: process.platform,

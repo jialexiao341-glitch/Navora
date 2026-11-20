@@ -67,6 +67,15 @@
     <label><span data-i18n="pet_character">选择桌宠</span><select id="pet-character"><option value="shenshen" data-i18n="pet_char_shenshen">深深</option><option value="doro" data-i18n="pet_char_doro">Doro</option></select></label>
     <label><span data-i18n="pet_size">显示大小</span><select id="pet-size"><option value="240" data-i18n="pet_size_sm">小</option><option value="320" data-i18n="pet_size_md">标准</option><option value="400" data-i18n="pet_size_lg">大</option><option value="480" data-i18n="pet_size_xl">超大</option></select></label>
     <label id="pet-desktop-window-wrap" hidden><span data-i18n="pet_desktop_window">系统桌面悬浮窗</span><input id="pet-desktop-window" type="checkbox"></label>
+    <label id="pet-display-wrap" hidden><span data-i18n="pet_display">显示屏幕</span><select id="pet-display"></select></label>
+    <div id="pet-shortcut-wrap" class="pet-shortcut-row">
+        <span data-i18n="pet_shortcut">快捷呼出</span>
+        <div class="pet-shortcut-controls">
+            <button id="pet-shortcut-btn" type="button" class="pet-shortcut-btn">Alt+P</button>
+            <button id="pet-shortcut-reset" type="button" class="pet-shortcut-reset" data-i18n-title="pet_shortcut_reset" title="恢复默认 Alt+P" hidden>↺</button>
+        </div>
+    </div>
+    <p id="pet-shortcut-error" class="pet-shortcut-error" role="alert" hidden></p>
     <label><span data-i18n="pet_roam">自由漫游</span><input id="pet-roam" type="checkbox"></label>
     <label><span data-i18n="pet_lock">锁定位置</span><input id="pet-lock" type="checkbox"></label>
     <label><span data-i18n="pet_passthrough">鼠标穿透</span><input id="pet-passthrough" type="checkbox"></label>

@@ -53,7 +53,8 @@ desktop/
 ├── src/
 │   ├── main/              # Electron main process
 │   │   ├── index.ts       # Window management, IPC, backend & audio bridge
-│   │   ├── pet-window.ts  # Transparent always-on-top desktop pet overlay & Alt+P hotkey
+│   │   ├── pet-prefs.ts   # Persisted display & global shortcut helpers for desktop pet
+│   │   ├── pet-window.ts  # Transparent always-on-top desktop pet overlay & custom hotkey
 │   │   ├── python-manager.ts  # Python backend lifecycle
 │   │   ├── preload.ts     # Context bridge for Web Console & pet overlay
 │   │   ├── tray.ts        # System tray controls

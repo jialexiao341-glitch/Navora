@@ -131,7 +131,7 @@ test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and 
  const html=fs.readFileSync(path.join(__dirname,'../channel/web/templates/layout/ambient-player.html'),'utf8');
  assert.ok(!html.includes('ambient-pet-tab'));
  assert.ok(!html.includes('ambient-pet-view'));
- for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','pet-reset-pos','ambient-pet-restore','pet-passthrough','pet-desktop-window','pet-sound','shenshen','doro','checkin','inspire','compliment']) {
+ for(const id of ['pet-side-panel','pet-quick-chat','pet-quick-input','pet-reset-pos','ambient-pet-restore','pet-passthrough','pet-desktop-window','pet-display-wrap','pet-display','pet-shortcut-wrap','pet-shortcut-btn','pet-shortcut-reset','pet-shortcut-error','pet-sound','shenshen','doro','checkin','inspire','compliment']) {
   assert.ok(html.includes(id),id);
  }
  for(const removed of ['xiaoya','lanlan','paopao','momo']) {
@@ -152,4 +152,59 @@ test('petSafePlace, petSnapTarget, granular tasks, focus/ambient reactions, and 
  assert.ok(petHtml.includes('pet-window-mode'));
  assert.ok(petHtml.includes('templates/layout/ambient-player.html'));
  assert.ok(petHtml.includes('indesktop-pet.js'));
+});
+
+test('custom quick-ask shortcut normalization, event capture, matching, and hints', () => {
+ const {
+  petNormalizeShortcut, petShortcutFromKeyboardEvent, petFormatShortcut, petMatchesShortcut, petFormatHint, petClickLine
+ } = require('../channel/web/static/js/core/indesktop-pet.js');
+
+ assert.equal(petNormalizeShortcut('alt+p'), 'Alt+P');
+ assert.equal(petNormalizeShortcut('shift+control+space'), 'Ctrl+Shift+Space');
+ assert.equal(petNormalizeShortcut('CommandOrControl+Shift+k'), 'CmdOrCtrl+Shift+K');
+ assert.equal(petNormalizeShortcut('f8'), 'F8');
+ assert.equal(petNormalizeShortcut(''), '');
+ assert.equal(petNormalizeShortcut('p'), null);
+ assert.equal(petNormalizeShortcut('Shift+P'), null);
+ assert.equal(petNormalizeShortcut('Ctrl+Alt'), null);
+
+ // macOS Option+P produces dead/greek key 'π' in e.key while e.code is 'KeyP'
+ assert.deepEqual(
+  petShortcutFromKeyboardEvent({ altKey: true, key: 'π', code: 'KeyP' }),
+  { action: 'set', shortcut: 'Alt+P' }
+ );
+ assert.deepEqual(
+  petShortcutFromKeyboardEvent({ ctrlKey: true, shiftKey: true, key: ' ', code: 'Space' }),
+  { action: 'set', shortcut: 'Ctrl+Shift+Space' }
+ );
+ assert.deepEqual(
+  petShortcutFromKeyboardEvent({ key: 'Shift', code: 'ShiftLeft', shiftKey: true }),
+  { action: 'ignore' }
+ );
+ assert.deepEqual(
+  petShortcutFromKeyboardEvent({ key: 'Escape', code: 'Escape' }),
+  { action: 'cancel' }
+ );
+ assert.deepEqual(
+  petShortcutFromKeyboardEvent({ key: 'Backspace', code: 'Backspace' }),
+  { action: 'clear', shortcut: '' }
+ );
+ assert.deepEqual(
+  petShortcutFromKeyboardEvent({ shiftKey: true, key: 'A', code: 'KeyA' }),
+  { action: 'invalid' }
+ );
+
+ assert.equal(petFormatShortcut('Alt+P', 'darwin'), 'Option+P');
+ assert.equal(petFormatShortcut('CmdOrCtrl+Shift+K', 'darwin'), 'Cmd+Shift+K');
+ assert.equal(petFormatShortcut('CmdOrCtrl+Shift+K', 'win32'), 'Ctrl+Shift+K');
+ assert.equal(petFormatShortcut('', 'win32'), '未设置');
+
+ assert.equal(petMatchesShortcut({ altKey: true, code: 'KeyP', key: 'π' }, 'Alt+P', 'darwin'), true);
+ assert.equal(petMatchesShortcut({ altKey: true, ctrlKey: true, code: 'KeyP', key: 'p' }, 'Alt+P', 'win32'), false);
+ assert.equal(petMatchesShortcut({ metaKey: true, shiftKey: true, code: 'KeyK', key: 'K' }, 'CmdOrCtrl+Shift+K', 'darwin'), true);
+ assert.equal(petMatchesShortcut({ altKey: true, code: 'KeyP', key: 'p' }, '', 'win32'), false);
+
+ assert.ok(petFormatHint('Ctrl+Shift+Space', 'win32').includes('Ctrl+Shift+Space'));
+ assert.ok(!petFormatHint('', 'win32').includes('Alt+P'));
+ assert.match(petClickLine('shenshen', () => 0.7, null, 'Ctrl+K', 'win32'), /Ctrl\+K/);
 });

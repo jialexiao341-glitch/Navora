@@ -5,7 +5,7 @@
 .indesktop-pet.is-airborne::after { opacity:.18; transform:translateX(-50%) scale(.65); }
 .indesktop-pet.is-quiet { opacity:.42; pointer-events:none; }
 .indesktop-pet.is-passthrough { opacity:.74; pointer-events:none; }
-.indesktop-pet[hidden],.pet-settings[hidden],.pet-side-panel[hidden],.pet-quick-chat[hidden],.ambient-pet-restore[hidden] { display:none; }
+.indesktop-pet[hidden],.pet-settings[hidden],.pet-side-panel[hidden],.pet-quick-chat[hidden],.ambient-pet-restore[hidden],.pet-settings [hidden] { display:none; }
 .indesktop-pet video { position:absolute; pointer-events:none; width:var(--pet-size); max-width:none; height:calc(var(--pet-size) * .5625); left:50%; bottom:calc(var(--pet-size) * -.046875); transform:translateX(-50%); opacity:0; transition:opacity .16s ease; }
 .indesktop-pet video.active { opacity:1; }
 .indesktop-pet canvas { position:absolute; width:100%; height:100%; object-fit:contain; pointer-events:none; }
@@ -22,6 +22,19 @@
 .pet-settings label { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
 .pet-settings select { max-width:140px; padding:4px 6px; border:1px solid rgb(var(--cw-slate-200)); border-radius:6px; background:rgb(var(--cw-panel)); font-size:12px; }
 .pet-settings input { accent-color:rgb(var(--cw-primary-500)); }
+.pet-shortcut-row { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+.pet-shortcut-controls { display:flex; align-items:center; gap:4px; min-width:0; }
+.pet-shortcut-btn { max-width:136px; padding:3px 8px; border:1px solid rgb(var(--cw-slate-200)); border-radius:6px; background:rgb(var(--cw-panel)); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; color:rgb(var(--cw-slate-700)); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:border-color .15s ease, background .15s ease; }
+.pet-shortcut-btn:hover { border-color:rgb(var(--cw-primary-400)); }
+.pet-shortcut-btn.is-recording { border-color:rgb(var(--cw-primary-500)); background:rgb(var(--cw-primary-50)); color:rgb(var(--cw-primary-600)); font-family:inherit; }
+.pet-shortcut-reset { padding:3px 6px; border:1px solid rgb(var(--cw-slate-200)); border-radius:6px; background:transparent; color:rgb(var(--cw-slate-500)); font-size:11px; line-height:1.2; cursor:pointer; }
+.pet-shortcut-reset:hover { color:rgb(var(--cw-slate-700)); background:rgb(var(--cw-slate-100)); }
+.pet-settings p.pet-shortcut-error { margin:-4px 0 8px; color:#dc2626; font-size:11px; line-height:1.35; }
+.dark .pet-shortcut-btn { border-color:rgb(var(--cw-slate-700)); color:rgb(var(--cw-slate-200)); }
+.dark .pet-shortcut-btn.is-recording { background:rgb(var(--cw-primary-400) / .18); color:rgb(var(--cw-accent-ink)); border-color:rgb(var(--cw-primary-400)); }
+.dark .pet-shortcut-reset { border-color:rgb(var(--cw-slate-700)); color:rgb(var(--cw-slate-400)); }
+.dark .pet-shortcut-reset:hover { color:rgb(var(--cw-slate-200)); background:rgb(var(--cw-slate-800)); }
+.dark .pet-settings p.pet-shortcut-error { color:#f87171; }
 .pet-actions { display:flex; gap:8px; margin-top:8px; }
 .pet-actions button { flex:1; padding:7px 8px; border-radius:8px; background:rgb(var(--cw-primary-50)); color:rgb(var(--cw-primary-600)); font-size:12px; font-weight:500; }
 .pet-actions button:hover { background:rgb(var(--cw-primary-100, var(--cw-primary-50))); }

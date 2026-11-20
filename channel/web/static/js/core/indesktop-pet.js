@@ -125,8 +125,133 @@ function petPlannedMoveDistance(stridePx, size, x, dir, width, w, margin = 16) {
     const room = dir < 0 ? Math.max(0, x - margin) : Math.max(0, width - w - margin - x);
     return Math.min(scaled, room);
 }
-function petClickLine(character, random = Math.random, tr = null) {
+const PET_DEFAULT_SHORTCUT = 'Alt+P';
+const PET_MODIFIER_ORDER = ['Ctrl', 'Cmd', 'CmdOrCtrl', 'Alt', 'Shift'];
+const PET_MODIFIER_ALIASES = {
+    ctrl: 'Ctrl', control: 'Ctrl',
+    cmd: 'Cmd', command: 'Cmd', meta: 'Cmd', super: 'Cmd', win: 'Cmd',
+    commandorcontrol: 'CmdOrCtrl', cmdorctrl: 'CmdOrCtrl',
+    alt: 'Alt', option: 'Alt', altgr: 'Alt',
+    shift: 'Shift',
+};
+const PET_SPECIAL_KEYS = {
+    space: 'Space', spacebar: 'Space', ' ': 'Space',
+    enter: 'Enter', return: 'Enter',
+    tab: 'Tab',
+    backspace: 'Backspace',
+    delete: 'Delete', del: 'Delete',
+    home: 'Home', end: 'End',
+    pageup: 'PageUp', pagedown: 'PageDown',
+    up: 'Up', arrowup: 'Up',
+    down: 'Down', arrowdown: 'Down',
+    left: 'Left', arrowleft: 'Left',
+    right: 'Right', arrowright: 'Right',
+    plus: 'Plus',
+    '=': '=', '-': '-', ',': ',', '.': '.', '/': '/', ';': ';', "'": "'", '[': '[', ']': ']', '\\': '\\', '`': '`',
+};
+const PET_CODE_TO_KEY = {
+    Space: 'Space', Enter: 'Enter', Tab: 'Tab', Backspace: 'Backspace', Delete: 'Delete',
+    Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+    ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+    Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\',
+    Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backquote: '`',
+};
+function petNormalizeShortcut(raw) {
+    if (raw === '') return '';
+    if (typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    const parts = trimmed.split('+').map(p => p.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    const mods = new Set();
+    let mainKey = null;
+    for (const part of parts) {
+        const lower = part.toLowerCase();
+        const mod = PET_MODIFIER_ALIASES[lower];
+        if (mod) { mods.add(mod); continue; }
+        if (mainKey !== null) return null;
+        if (/^[A-Z0-9]$/i.test(part) || /^F([1-9]|1[0-2])$/i.test(part)) mainKey = part.toUpperCase();
+        else if (PET_SPECIAL_KEYS[lower]) mainKey = PET_SPECIAL_KEYS[lower];
+        else return null;
+    }
+    if (!mainKey) return null;
+    const isFn = /^F([1-9]|1[0-2])$/i.test(mainKey);
+    if (!isFn && mods.size === 0) return null;
+    if (!isFn && mods.size === 1 && mods.has('Shift') && (/^[A-Z0-9]$/i.test(mainKey) || mainKey === 'Space')) return null;
+    return [...PET_MODIFIER_ORDER.filter(m => mods.has(m)), mainKey].join('+');
+}
+function petExtractEventKey(event) {
+    if (!event) return null;
+    const code = String(event.code || '');
+    if (/^Key([A-Z])$/.test(code)) return code.slice(3);
+    if (/^Digit([0-9])$/.test(code)) return code.slice(5);
+    if (/^F([1-9]|1[0-2])$/.test(code)) return code;
+    if (PET_CODE_TO_KEY[code]) return PET_CODE_TO_KEY[code];
+    const key = String(event.key || '');
+    if (!key) return null;
+    const lower = key.toLowerCase();
+    if (['control', 'shift', 'alt', 'meta', 'os', 'altgraph'].includes(lower)) return 'MODIFIER_ONLY';
+    if (key === 'Escape' || lower === 'escape') return 'Escape';
+    if (/^[a-z0-9]$/i.test(key)) return key.toUpperCase();
+    if (/^F([1-9]|1[0-2])$/i.test(key)) return key.toUpperCase();
+    if (PET_SPECIAL_KEYS[lower]) return PET_SPECIAL_KEYS[lower];
+    return null;
+}
+function petShortcutFromKeyboardEvent(event) {
+    if (!event) return { action: 'invalid' };
+    const mainKey = petExtractEventKey(event);
+    if (mainKey === 'MODIFIER_ONLY') return { action: 'ignore' };
+    const hasMod = Boolean(event.ctrlKey || event.metaKey || event.altKey || event.shiftKey);
+    if (mainKey === 'Escape' && !hasMod) return { action: 'cancel' };
+    if ((mainKey === 'Backspace' || mainKey === 'Delete') && !hasMod) return { action: 'clear', shortcut: '' };
+    if (!mainKey) return { action: 'invalid' };
+    const mods = [];
+    if (event.ctrlKey) mods.push('Ctrl');
+    if (event.metaKey) mods.push('Cmd');
+    if (event.altKey) mods.push('Alt');
+    if (event.shiftKey) mods.push('Shift');
+    const normalized = petNormalizeShortcut([...mods, mainKey].join('+'));
+    if (!normalized) return { action: 'invalid' };
+    return { action: 'set', shortcut: normalized };
+}
+function petFormatShortcut(shortcut, platform = '', tr = null) {
+    const f = (k, fb) => (typeof tr === 'function' ? tr(k, fb) : fb);
+    if (!shortcut) return f('pet_shortcut_none', '未设置');
+    const isMac = platform === 'darwin' || /Mac/i.test(String(platform || ''));
+    return String(shortcut).split('+').map(part => {
+        if (part === 'CmdOrCtrl') return isMac ? 'Cmd' : 'Ctrl';
+        if (part === 'Alt' && isMac) return 'Option';
+        return part;
+    }).join('+');
+}
+function petMatchesShortcut(event, shortcut, platform = '') {
+    if (!event || !shortcut) return false;
+    const normalized = petNormalizeShortcut(shortcut);
+    if (!normalized) return false;
+    const parts = normalized.split('+');
+    const expectedKey = parts[parts.length - 1];
+    const mods = new Set(parts.slice(0, -1));
+    const isMac = platform === 'darwin' || /Mac/i.test(String(platform || ''));
+    const needCtrl = mods.has('Ctrl') || (mods.has('CmdOrCtrl') && !isMac);
+    const needCmd = mods.has('Cmd') || (mods.has('CmdOrCtrl') && isMac);
+    const needAlt = mods.has('Alt');
+    const needShift = mods.has('Shift');
+    if (Boolean(event.ctrlKey) !== needCtrl) return false;
+    if (Boolean(event.metaKey) !== needCmd) return false;
+    if (Boolean(event.altKey) !== needAlt) return false;
+    if (Boolean(event.shiftKey) !== needShift) return false;
+    const actualKey = petExtractEventKey(event);
+    return actualKey === expectedKey;
+}
+function petFormatHint(shortcut, platform = '', tr = null) {
+    const f = (k, fb) => (typeof tr === 'function' ? tr(k, fb) : fb);
+    if (!shortcut) return f('pet_hint_no_key', '单击快问 · 双击互动 · 悬停设置 · 拖动甩抛');
+    const formatted = petFormatShortcut(shortcut, platform, tr);
+    return f('pet_hint_tpl', '单击快问({shortcut}) · 双击互动 · 悬停设置 · 拖动甩抛').replace('{shortcut}', formatted);
+}
+function petClickLine(character, random = Math.random, tr = null, shortcut = PET_DEFAULT_SHORTCUT, platform = '') {
     const isEn = typeof tr === 'function' && tr('pet_size_sm', '小') === 'Small';
+    const keyLabel = shortcut ? petFormatShortcut(shortcut, platform, tr) : '';
     const banks = {
         doro: isEn
             ? [
@@ -151,7 +276,7 @@ function petClickLine(character, random = Math.random, tr = null) {
                 'Ready whenever you are!',
                 'Need a hand with something?',
                 'Staying right beside you.',
-                'Press Alt+P anytime if a thought pops up~',
+                keyLabel ? `Press ${keyLabel} anytime if a thought pops up~` : 'Click me anytime if a thought pops up~',
                 'You’re doing great—one step at a time!',
             ]
             : [
@@ -159,7 +284,7 @@ function petClickLine(character, random = Math.random, tr = null) {
                 '随时待命，有什么需要尽管说！',
                 '要一起聊点什么吗？',
                 '我一直都在旁边陪着你哦~',
-                '有灵感的话随时按 Alt+P 叫我！',
+                keyLabel ? `有灵感的话随时按 ${keyLabel} 叫我！` : '有灵感的话随时点我叫我！',
                 '一步一步来，今天也在稳稳推进呢~',
             ],
     };
@@ -223,6 +348,7 @@ if (typeof module !== 'undefined') {
     module.exports = {
         petNextAction, petBounds, petSafePlace, petSnapTarget, petTaskStatus, doroTaskTrack, petFrameIndex,
         sampleMoveCurve, petShouldFlip, petChooseMoveDirection, petPlannedMoveDistance,
+        petNormalizeShortcut, petShortcutFromKeyboardEvent, petFormatShortcut, petMatchesShortcut, petFormatHint,
         petClickLine, petFocusReaction, petAmbientReaction, petFormatReplyPreview, petOverlayShouldIgnoreMouse
     };
 }
@@ -245,9 +371,15 @@ if (typeof document !== 'undefined') (async () => {
     const passthroughEl = document.getElementById('pet-passthrough'), soundEl = document.getElementById('pet-sound');
     const desktopWinWrap = document.getElementById('pet-desktop-window-wrap');
     const desktopWinEl = document.getElementById('pet-desktop-window');
+    const displayWrap = document.getElementById('pet-display-wrap');
+    const displaySelect = document.getElementById('pet-display');
+    const shortcutBtn = document.getElementById('pet-shortcut-btn');
+    const shortcutResetBtn = document.getElementById('pet-shortcut-reset');
+    const shortcutErrorEl = document.getElementById('pet-shortcut-error');
     const isPetOverlayWindow = document.documentElement.classList.contains('pet-window-mode');
     const electronApi = typeof window !== 'undefined' ? window.electronAPI : null;
     const hasDesktopPetShell = Boolean(electronApi && typeof electronApi.petSetDesktopMode === 'function');
+    const desktopPlatform = (electronApi && electronApi.platform) || (typeof navigator !== 'undefined' ? navigator.platform : '');
     const frameCache = new Map(), videoBlobCache = new Map();
     const MAX_FRAME_CACHE = 12, MAX_VIDEO_CACHE = 10;
     let moveStrides = {};
@@ -263,8 +395,12 @@ if (typeof document !== 'undefined') (async () => {
     const STORAGE_KEY = 'navora_indesktop_pet_v1';
     let config = {
         enabled: true, size: 320, roam: true, locked: false, passthrough: false, sound: true,
-        character: 'shenshen', desktopWindow: hasDesktopPetShell, x: null, y: null,
+        character: 'shenshen', desktopWindow: hasDesktopPetShell, displayId: 'primary', shortcut: PET_DEFAULT_SHORTCUT,
+        x: null, y: null,
     };
+    let availableDisplays = [];
+    let recordingShortcut = false;
+    let shortcutErrorMsg = '';
     function readStoredConfig() {
         let stored = {};
         try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; } catch (_) {}
@@ -278,6 +414,9 @@ if (typeof document !== 'undefined') (async () => {
         config.sound = stored.sound !== false;
         config.character = nextChar;
         config.desktopWindow = hasDesktopPetShell ? (stored.desktopWindow !== false) : false;
+        config.displayId = typeof stored.displayId === 'string' && stored.displayId.trim() ? stored.displayId.trim() : 'primary';
+        const storedShortcut = petNormalizeShortcut(stored.shortcut);
+        config.shortcut = storedShortcut !== null ? storedShortcut : PET_DEFAULT_SHORTCUT;
         if (isPetOverlayWindow) {
             config.x = Number.isFinite(stored.desktopX) ? stored.desktopX : null;
             config.y = Number.isFinite(stored.desktopY) ? stored.desktopY : null;
@@ -310,6 +449,8 @@ if (typeof document !== 'undefined') (async () => {
                 sound: config.sound,
                 character: config.character,
                 desktopWindow: config.desktopWindow,
+                displayId: config.displayId,
+                shortcut: config.shortcut,
             };
             if (isPetOverlayWindow) {
                 payload.desktopX = config.x;
@@ -530,6 +671,50 @@ if (typeof document !== 'undefined') (async () => {
         }
     }
 
+    function refreshStatusHint() {
+        if (!status) return;
+        status.textContent = petFormatHint(config.shortcut, desktopPlatform, tr);
+    }
+
+    function renderDisplayOptions() {
+        if (!displayWrap || !displaySelect) return;
+        const show = hasDesktopPetShell && Array.isArray(availableDisplays) && availableDisplays.length > 0;
+        displayWrap.hidden = !show;
+        if (!show) return;
+        const opts = [new Option(tr('pet_display_primary_auto', '主屏幕 (自动)'), 'primary')];
+        for (const d of availableDisplays) {
+            let label = tr('pet_display_item', '屏幕 {n} ({w}×{h})')
+                .replace('{n}', String(d.index))
+                .replace('{w}', String(d.width || 0))
+                .replace('{h}', String(d.height || 0));
+            if (d.label) label += ` · ${d.label}`;
+            if (d.isPrimary) label += ` · ${tr('pet_display_primary_tag', '主屏')}`;
+            opts.push(new Option(label, String(d.id)));
+        }
+        displaySelect.replaceChildren(...opts);
+        const hasMatch = opts.some(o => o.value === config.displayId);
+        if (!hasMatch) config.displayId = 'primary';
+        displaySelect.value = config.displayId;
+    }
+
+    function renderShortcutControls() {
+        if (shortcutBtn) {
+            shortcutBtn.classList.toggle('is-recording', recordingShortcut);
+            shortcutBtn.textContent = recordingShortcut
+                ? tr('pet_shortcut_recording', '请按快捷键 (Esc 取消)')
+                : petFormatShortcut(config.shortcut, desktopPlatform, tr);
+        }
+        if (shortcutResetBtn) {
+            shortcutResetBtn.hidden = recordingShortcut || config.shortcut === PET_DEFAULT_SHORTCUT;
+            shortcutResetBtn.title = tr('pet_shortcut_reset', '恢复默认 Alt+P');
+        }
+        if (shortcutErrorEl) {
+            shortcutErrorEl.textContent = shortcutErrorMsg;
+            shortcutErrorEl.hidden = !shortcutErrorMsg;
+        }
+        refreshStatusHint();
+    }
+
     function apply({ avoid = true, persist = true } = {}) {
         const visible = isLocalPetVisible();
         root.style.setProperty('--pet-size', Math.min(config.size, innerWidth * 1.5) + 'px');
@@ -541,7 +726,7 @@ if (typeof document !== 'undefined') (async () => {
             videos.forEach(v => v.pause());
         }
         if (!visible || sleeping) bubble.hidden = true;
-        if (!visible && sidePanel) sidePanel.hidden = true;
+        if (!visible && sidePanel) showSidePanel(false);
         if (!visible && quickChat) quickChat.hidden = true;
         document.getElementById('pet-size').value = config.size;
         document.getElementById('pet-roam').checked = config.roam;
@@ -552,6 +737,8 @@ if (typeof document !== 'undefined') (async () => {
             desktopWinWrap.hidden = !hasDesktopPetShell;
             desktopWinEl.checked = Boolean(config.desktopWindow);
         }
+        renderDisplayOptions();
+        renderShortcutControls();
         const w = root.offsetWidth || Math.round(config.size * 0.46);
         const h = root.offsetHeight || Math.round(config.size * 0.49);
         const defaultX = innerWidth - w - 30, defaultY = innerHeight - h - 30;
@@ -790,6 +977,7 @@ if (typeof document !== 'undefined') (async () => {
             sidePanel.hidden = false;
             positionFloatingOverlays(config.x ?? 0, config.y ?? 0);
         } else {
+            if (recordingShortcut) stopShortcutRecording();
             sidePanel.hidden = true;
         }
         syncOverlayMouse();
@@ -797,6 +985,7 @@ if (typeof document !== 'undefined') (async () => {
     function scheduleHideSidePanel() {
         clearTimeout(hoverCloseTimer);
         hoverCloseTimer = setTimeout(() => {
+            if (recordingShortcut) return;
             if (sidePanel && sidePanel.contains(document.activeElement)) return;
             showSidePanel(false);
         }, 260);
@@ -814,6 +1003,7 @@ if (typeof document !== 'undefined') (async () => {
         sidePanel.addEventListener('mouseleave', scheduleHideSidePanel);
         sidePanel.addEventListener('focusout', () => {
             setTimeout(() => {
+                if (recordingShortcut) return;
                 if (!sidePanel.matches(':hover') && !root.matches(':hover') && !sidePanel.contains(document.activeElement)) {
                     showSidePanel(false);
                 }
@@ -901,7 +1091,7 @@ if (typeof document !== 'undefined') (async () => {
         scheduleInactivitySleep();
         playPetSfx('click');
         play(pick(paths('click')));
-        if (!working && !focusState.running) showBubble(petClickLine(config.character, Math.random, tr), { duration: 4000 });
+        if (!working && !focusState.running) showBubble(petClickLine(config.character, Math.random, tr, config.shortcut, desktopPlatform), { duration: 4000 });
     }
 
     // Restore bar in flower panel (only shown when pet is hidden, click-through, or floating in desktop window)
@@ -950,6 +1140,130 @@ if (typeof document !== 'undefined') (async () => {
         broadcastConfigSync({ passthrough: config.passthrough });
     };
     if (soundEl) soundEl.onchange = e => { config.sound = e.target.checked; save(); broadcastConfigSync({ sound: config.sound }); };
+    if (displaySelect) displaySelect.onchange = async e => {
+        const nextDisplayId = String(e.target.value || 'primary');
+        config.displayId = nextDisplayId;
+        save();
+        if (hasDesktopPetShell && typeof electronApi.petSetDisplay === 'function') {
+            try {
+                const res = await electronApi.petSetDisplay(nextDisplayId);
+                if (res) {
+                    if (Array.isArray(res.displays)) availableDisplays = res.displays;
+                    if (typeof res.displayId === 'string') config.displayId = res.displayId;
+                    renderDisplayOptions();
+                    save();
+                }
+            } catch (_) {}
+        } else {
+            broadcastConfigSync({ displayId: config.displayId });
+        }
+    };
+
+    async function commitShortcut(nextShortcut) {
+        shortcutErrorMsg = '';
+        if (hasDesktopPetShell && typeof electronApi.petSetShortcut === 'function') {
+            try {
+                const res = await electronApi.petSetShortcut(nextShortcut);
+                if (res && res.ok) {
+                    config.shortcut = typeof res.shortcut === 'string' ? res.shortcut : '';
+                    save();
+                    renderShortcutControls();
+                } else {
+                    if (res && typeof res.shortcut === 'string') config.shortcut = res.shortcut;
+                    const errCode = res?.error;
+                    shortcutErrorMsg = errCode === 'invalid'
+                        ? tr('pet_shortcut_invalid', '请使用修饰键（如 Ctrl/Alt）+ 主键，或直接按 F1-F12')
+                        : tr('pet_shortcut_conflict', '该快捷键已被系统或其他应用占用，请更换组合');
+                    renderShortcutControls();
+                }
+            } catch (_) {
+                shortcutErrorMsg = tr('pet_shortcut_conflict', '该快捷键已被系统或其他应用占用，请更换组合');
+                renderShortcutControls();
+            }
+            return;
+        }
+        const normalized = petNormalizeShortcut(nextShortcut);
+        if (normalized === null) {
+            shortcutErrorMsg = tr('pet_shortcut_invalid', '请使用修饰键（如 Ctrl/Alt）+ 主键，或直接按 F1-F12');
+            renderShortcutControls();
+            return;
+        }
+        config.shortcut = normalized;
+        save();
+        renderShortcutControls();
+        broadcastConfigSync({ shortcut: config.shortcut });
+    }
+
+    function onShortcutRecordKeyDown(e) {
+        if (!recordingShortcut) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const parsed = petShortcutFromKeyboardEvent(e);
+        if (parsed.action === 'ignore') return;
+        if (parsed.action === 'cancel') {
+            stopShortcutRecording();
+            return;
+        }
+        if (parsed.action === 'invalid') {
+            shortcutErrorMsg = tr('pet_shortcut_invalid', '请使用修饰键（如 Ctrl/Alt）+ 主键，或直接按 F1-F12');
+            renderShortcutControls();
+            return;
+        }
+        if (parsed.action === 'clear' || parsed.action === 'set') {
+            const target = parsed.shortcut || '';
+            stopShortcutRecording({ keepPausedUntilCommit: true });
+            void commitShortcut(target);
+        }
+    }
+
+    function startShortcutRecording() {
+        if (recordingShortcut) return;
+        recordingShortcut = true;
+        shortcutErrorMsg = '';
+        if (hasDesktopPetShell && typeof electronApi.petSetShortcutPaused === 'function') {
+            void electronApi.petSetShortcutPaused(true);
+        }
+        if (isPetOverlayWindow && electronApi) {
+            if (typeof electronApi.petSetIgnoreMouse === 'function') {
+                lastIgnoreMouse = false;
+                electronApi.petSetIgnoreMouse(false);
+            }
+            if (typeof electronApi.petSetFocusable === 'function') {
+                electronApi.petSetFocusable(true);
+            }
+        }
+        window.addEventListener('keydown', onShortcutRecordKeyDown, true);
+        renderShortcutControls();
+    }
+
+    function stopShortcutRecording({ keepPausedUntilCommit = false } = {}) {
+        if (!recordingShortcut) return;
+        recordingShortcut = false;
+        window.removeEventListener('keydown', onShortcutRecordKeyDown, true);
+        if (!keepPausedUntilCommit && hasDesktopPetShell && typeof electronApi.petSetShortcutPaused === 'function') {
+            void electronApi.petSetShortcutPaused(false);
+        }
+        if (isPetOverlayWindow && electronApi && (!quickChat || quickChat.hidden)) {
+            if (typeof electronApi.petSetFocusable === 'function') {
+                electronApi.petSetFocusable(false);
+            }
+            syncOverlayMouse();
+        }
+        renderShortcutControls();
+    }
+
+    if (shortcutBtn) {
+        shortcutBtn.onclick = () => {
+            if (recordingShortcut) stopShortcutRecording();
+            else startShortcutRecording();
+        };
+    }
+    if (shortcutResetBtn) {
+        shortcutResetBtn.onclick = () => {
+            stopShortcutRecording({ keepPausedUntilCommit: true });
+            void commitShortcut(PET_DEFAULT_SHORTCUT);
+        };
+    }
     document.getElementById('pet-sleep').onclick = () => {
         setSleepState(!sleeping, { manual: !sleeping });
         if (!sleeping) scheduleInactivitySleep();
@@ -977,7 +1291,8 @@ if (typeof document !== 'undefined') (async () => {
         if (e.key === 'Escape') { toggleQuickChat(false); showSidePanel(false); }
     };
     window.addEventListener('keydown', e => {
-        if (!e.altKey || e.ctrlKey || e.metaKey || e.key.toLowerCase() !== 'p') return;
+        if (recordingShortcut) return;
+        if (!config.shortcut || !petMatchesShortcut(e, config.shortcut, desktopPlatform)) return;
         if (hasDesktopPetShell && config.desktopWindow && !isPetOverlayWindow) return;
         e.preventDefault();
         if (!config.enabled) {
@@ -1143,6 +1458,7 @@ if (typeof document !== 'undefined') (async () => {
     reduce.addEventListener('change', () => { velocity = null; activeMove = null; next(); });
     window.addEventListener('resize', () => apply({ avoid: true }));
     window.addEventListener('beforeunload', () => {
+        if (recordingShortcut) stopShortcutRecording();
         for (const url of videoBlobCache.values()) URL.revokeObjectURL(url);
         videoBlobCache.clear();
     });
@@ -1219,6 +1535,8 @@ if (typeof document !== 'undefined') (async () => {
         if (detail.lang && typeof currentLang !== 'undefined' && typeof applyI18n === 'function' && currentLang !== detail.lang) {
             currentLang = detail.lang;
             applyI18n();
+            renderDisplayOptions();
+            renderShortcutControls();
         }
     }
     function applyRemoteConfigSync(patch = {}) {
@@ -1231,6 +1549,11 @@ if (typeof document !== 'undefined') (async () => {
         if (typeof patch.locked === 'boolean') config.locked = patch.locked;
         if (typeof patch.passthrough === 'boolean') config.passthrough = patch.passthrough;
         if (typeof patch.sound === 'boolean') config.sound = patch.sound;
+        if (typeof patch.displayId === 'string' && patch.displayId.trim()) config.displayId = patch.displayId.trim();
+        if (typeof patch.shortcut === 'string') {
+            const norm = petNormalizeShortcut(patch.shortcut);
+            if (norm !== null) config.shortcut = norm;
+        }
         if (patch.character === 'doro' || patch.character === 'shenshen') config.character = patch.character;
         save();
         if (config.character !== prevChar) {
@@ -1246,6 +1569,49 @@ if (typeof document !== 'undefined') (async () => {
     document.addEventListener('navora:focus-state', e => handleFocusState(e.detail || {}));
     document.addEventListener('navora:ambient-audio', e => handleAmbientAudio(e.detail || {}));
     document.addEventListener('navora:pet-config-sync', e => applyRemoteConfigSync(e.detail || {}));
+
+    async function hydrateDesktopPetShellState() {
+        if (!hasDesktopPetShell) return;
+        try {
+            const [modeRes, displaysRes] = await Promise.all([
+                typeof electronApi.petGetDesktopMode === 'function' ? electronApi.petGetDesktopMode().catch(() => null) : null,
+                typeof electronApi.petGetDisplays === 'function' ? electronApi.petGetDisplays().catch(() => null) : null,
+            ]);
+            if (modeRes) {
+                if (typeof modeRes.displayId === 'string' && modeRes.displayId.trim()) config.displayId = modeRes.displayId.trim();
+                if (typeof modeRes.shortcut === 'string') {
+                    const norm = petNormalizeShortcut(modeRes.shortcut);
+                    if (norm !== null) config.shortcut = norm;
+                }
+                if (typeof modeRes.desktopWindow === 'boolean') config.desktopWindow = modeRes.desktopWindow;
+                if (typeof modeRes.enabled === 'boolean') config.enabled = modeRes.enabled;
+            }
+            if (displaysRes && Array.isArray(displaysRes.displays)) {
+                availableDisplays = displaysRes.displays;
+                if (typeof displaysRes.displayId === 'string' && displaysRes.displayId.trim()) {
+                    config.displayId = displaysRes.displayId.trim();
+                }
+            }
+            apply({ avoid: true, persist: true });
+        } catch (_) {}
+    }
+
+    if (typeof MutationObserver === 'function') {
+        new MutationObserver(() => {
+            renderDisplayOptions();
+            renderShortcutControls();
+        }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    }
+
+    if (hasDesktopPetShell && typeof electronApi.onPetDisplaysChanged === 'function') {
+        electronApi.onPetDisplaysChanged(payload => {
+            if (!payload) return;
+            if (Array.isArray(payload.displays)) availableDisplays = payload.displays;
+            if (typeof payload.displayId === 'string' && payload.displayId.trim()) config.displayId = payload.displayId.trim();
+            renderDisplayOptions();
+            save();
+        });
+    }
 
     if (isPetOverlayWindow && electronApi) {
         document.addEventListener('mousemove', e => syncOverlayMouse(e.clientX, e.clientY));
@@ -1280,8 +1646,9 @@ if (typeof document !== 'undefined') (async () => {
         if (typeof electronApi.onPetConfigChanged === 'function') {
             electronApi.onPetConfigChanged(patch => applyRemoteConfigSync(patch || {}));
         }
+        void hydrateDesktopPetShellState();
     } else if (hasDesktopPetShell) {
-        syncDesktopModeToShell();
+        void hydrateDesktopPetShellState();
     }
 
     const ambientToggle = document.getElementById('ambient-toggle');
@@ -1333,9 +1700,9 @@ if (typeof document !== 'undefined') (async () => {
             const select = document.getElementById('pet-animation');
             select.replaceChildren(new Option(tr('pet_animation_pick', '选择动作'), ''));
             for (const clip of manifest) select.append(new Option(clip.name, clip.path));
-            status.textContent = tr('pet_hint', '单击快问(Alt+P) · 双击互动 · 悬停设置 · 拖动甩抛');
+            refreshStatusHint();
             apply({ avoid: true });
-            showBubble(petClickLine(character, Math.random, tr), { duration: 3800 });
+            showBubble(petClickLine(character, Math.random, tr, config.shortcut, desktopPlatform), { duration: 3800 });
             schedulePreload(manifest);
             scheduleInactivitySleep();
             next();

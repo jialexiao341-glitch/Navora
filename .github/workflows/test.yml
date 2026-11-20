@@ -109,3 +109,7 @@ jobs:
       - name: Build desktop renderer and main
         working-directory: desktop
         run: npm run build
+
+      - name: Run desktop main unit tests
+        working-directory: desktop
+        run: npm test
