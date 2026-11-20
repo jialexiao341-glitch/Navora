@@ -57,6 +57,22 @@ class TestDesktopReleaseConfig(unittest.TestCase):
         for name in html_files:
             self.assertIn(f"'{name}'", spec_src, f"Missing channel/web/{name} in cowagent-backend.spec")
 
+    def test_desktop_renderer_stays_lightweight_boot_shell(self):
+        pkg = json.loads((ROOT / "desktop" / "package.json").read_text(encoding="utf-8"))
+        all_deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+        for legacy_dep in ("react-router-dom", "zustand", "lucide-react", "markdown-it", "highlight.js"):
+            self.assertNotIn(legacy_dep, all_deps, f"Legacy desktop UI dependency re-introduced: {legacy_dep}")
+
+        renderer_src = ROOT / "desktop" / "src" / "renderer" / "src"
+        self.assertTrue((renderer_src / "BootShell.tsx").is_file())
+        self.assertTrue((renderer_src / "components" / "StatusScreen.tsx").is_file())
+        self.assertTrue((renderer_src / "hooks" / "useBackend.ts").is_file())
+        for legacy_path in ("App.tsx", "pages", "store", "layout", "api"):
+            self.assertFalse(
+                (renderer_src / legacy_path).exists(),
+                f"Legacy dual-track renderer path should stay removed: {legacy_path}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

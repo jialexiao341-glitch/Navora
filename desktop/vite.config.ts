@@ -14,8 +14,6 @@ const sharedDepAliases = process.env.COW_PRODUCT_DIR
       react: path.join(nodeModules, 'react'),
       'react-dom': path.join(nodeModules, 'react-dom'),
       'react/jsx-runtime': path.join(nodeModules, 'react/jsx-runtime'),
-      'react-router-dom': path.join(nodeModules, 'react-router-dom'),
-      'lucide-react': path.join(nodeModules, 'lucide-react'),
     }
   : {}
 
