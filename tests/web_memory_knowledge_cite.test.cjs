@@ -37,7 +37,8 @@ test('memory, knowledge, and chat views expose search and citation hooks', () =>
     const knowledgeHtml = fs.readFileSync(path.join(ROOT, 'channel/web/templates/views/knowledge.html'), 'utf8');
     const memoryJs = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/views/memory.js'), 'utf8');
     const knowledgeJs = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/views/knowledge.js'), 'utf8');
-    const workspaceJs = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/workspace.js'), 'utf8');
+    const workspaceJs = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/workspace.js'), 'utf8')
+        + '\n' + fs.readFileSync(path.join(ROOT, 'channel/web/static/js/workspace-mentions.js'), 'utf8');
     const stateJs = fs.readFileSync(path.join(ROOT, 'channel/web/static/js/chat/state.js'), 'utf8');
 
     assert.match(memoryHtml, /id="memory-search-input"/);
