@@ -2,7 +2,7 @@
 
 Source: https://github.com/MerZlin/dsh-pet-indesktop/tree/v4.3.4
 
-The 106 original WebM files and character metadata are copied without modification. Their Git blob hashes are checked against the upstream tree during import. Upstream Python behavior and physics modules are retained here for provenance; they are not executed by the browser. The browser host is `js/core/indesktop-pet.js`.
+The 106 original WebM files and runtime stride metadata (`move_strides.json`) are copied without modification. Their Git blob hashes are checked against the upstream tree during tests (`upstream-lock.json`). Unused upstream PyQt desktop modules and non-runtime metadata files are omitted from the web bundle; the browser host is `js/core/indesktop-pet.js`.
 
 The web adaptation replaces Navora's previous companion configuration entirely and stores its own settings under `navora_indesktop_pet_v1`. It implements the upstream weighted idle/turn/action/movement chain, click and drag clips, throw/bounce, sleep, sizing, roaming and position lock within the browser viewport, plus Navora task animation events. OS-specific tray, multi-monitor, global shortcuts, OCR, native media integrations and the standalone AI chat subsystem are not included in this browser port.
 
