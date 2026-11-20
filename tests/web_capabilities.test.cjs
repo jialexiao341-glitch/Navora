@@ -44,7 +44,9 @@ test('capabilities HTML, JS actions, and i18n translations wire search and MCP d
     assert.ok(html.includes('id="capabilities-search-clear"'));
     assert.ok(html.includes('id="capabilities-search-empty"'));
 
-    const js = fs.readFileSync(path.join(__dirname, '../channel/web/static/js/views/skills.js'), 'utf8');
+    const js = ['skills.js', 'skills-mcp.js', 'skills-add.js']
+        .map((f) => fs.readFileSync(path.join(__dirname, '../channel/web/static/js/views', f), 'utf8'))
+        .join('\n');
     assert.ok(js.includes('/api/mcp/servers/reload'));
     assert.ok(js.includes('data-mcp-reload'));
     assert.ok(js.includes('data-mcp-switch'));

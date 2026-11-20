@@ -418,6 +418,8 @@ def test_frontend_contract_exposes_mcp_and_skill_install_surfaces():
     )
     js = (
         _read("channel/web/static/js/views/skills.js")
+        + _read("channel/web/static/js/views/skills-mcp.js")
+        + _read("channel/web/static/js/views/skills-add.js")
         + _read("channel/web/static/js/core/i18n.js")
         + _read("channel/web/static/js/core/i18n/zh.js")
         + _read("channel/web/static/js/core/i18n/zh-Hant.js")
